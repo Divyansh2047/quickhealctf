@@ -4,7 +4,7 @@
 // tracking per participant, and targeted recommendations from live stats.
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Clock, GraduationCap, Target, Users } from "lucide-react";
+import { CheckCircle2, Clock, GraduationCap, Target, Trophy, Users } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -204,64 +204,86 @@ export default function TrainingView() {
             )}
           </div>
 
-          {/* Targeted awareness side card */}
-          <Card className="h-fit rounded-xl p-4 sm:p-6">
-            <div className="flex items-center gap-2">
-              <Target className="size-4 text-amber-400" aria-hidden="true" />
-              <h2 className="text-sm font-semibold">Targeted awareness</h2>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Departments with the highest simulated click rates, matched to a focused module.
-            </p>
-            {targeted.length === 0 ? (
-              <EmptyState
-                icon={Target}
-                title="Not enough data yet"
-                hint="Department risk appears after campaigns collect simulated clicks."
-                className="mt-3 border-0 py-6"
-              />
-            ) : (
-              <ul className="mt-3 space-y-3">
-                {targeted.map((dept, idx) => {
-                  const mod = recommendedModuleFor(idx);
-                  return (
-                    <li key={dept.department} className="rounded-lg border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">{dept.department}</p>
-                        <span className="text-xs font-semibold text-red-400">
-                          {Math.round(dept.clickRate)}% click rate
-                        </span>
-                      </div>
-                      {mod ? (
-                        <button
-                          type="button"
-                          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                          onClick={() => setModuleOpen(mod)}
-                        >
-                          <GraduationCap className="size-3.5" aria-hidden="true" />
-                          Recommended: {mod.title}
-                        </button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {participant ? (
-              <div className="mt-4 border-t pt-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{participant.name}&apos;s progress</span>
-                  <span className="font-medium tabular-nums">{progressPct}%</span>
+          {/* Targeted awareness side card + badges callout */}
+          <div className="space-y-4">
+            <Card className="h-fit rounded-xl p-4 sm:p-6">
+              <div className="flex items-center gap-2">
+                <Target className="size-4 text-amber-400" aria-hidden="true" />
+                <h2 className="text-sm font-semibold">Targeted awareness</h2>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Departments with the highest simulated click rates, matched to a focused module.
+              </p>
+              {targeted.length === 0 ? (
+                <EmptyState
+                  icon={Target}
+                  title="Not enough data yet"
+                  hint="Department risk appears after campaigns collect simulated clicks."
+                  className="mt-3 border-0 py-6"
+                />
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {targeted.map((dept, idx) => {
+                    const mod = recommendedModuleFor(idx);
+                    return (
+                      <li key={dept.department} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">{dept.department}</p>
+                          <span className="text-xs font-semibold text-red-400">
+                            {Math.round(dept.clickRate)}% click rate
+                          </span>
+                        </div>
+                        {mod ? (
+                          <button
+                            type="button"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                            onClick={() => setModuleOpen(mod)}
+                          >
+                            <GraduationCap className="size-3.5" aria-hidden="true" />
+                            Recommended: {mod.title}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {participant ? (
+                <div className="mt-4 border-t pt-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{participant.name}&apos;s progress</span>
+                    <span className="font-medium tabular-nums">{progressPct}%</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${Math.max(2, progressPct)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-emerald-500 transition-all"
-                    style={{ width: `${Math.max(2, progressPct)}%` }}
-                  />
+              ) : null}
+            </Card>
+
+            {/* Earn badges callout */}
+            <Card className="rounded-xl border-amber-500/30 bg-amber-500/5 p-4">
+              <div className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/15 text-amber-400"
+                >
+                  <Trophy className="size-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">Earn badges</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Reporting phishes in the Test Inbox earns points and badges on the Leaderboard.
+                    Completing modules strengthens your resilience score too — every correct report
+                    is worth +15 points.
+                  </p>
                 </div>
               </div>
-            ) : null}
-          </Card>
+            </Card>
+          </div>
         </div>
       )}
 

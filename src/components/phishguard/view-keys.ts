@@ -4,7 +4,9 @@ export type ViewKey =
   | "overview"
   | "campaigns"
   | "templates"
+  | "ai-studio"
   | "inbox"
   | "training"
+  | "leaderboard"
   | "analytics"
   | "compliance";

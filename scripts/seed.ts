@@ -278,9 +278,20 @@ async function main() {
   })
 
   // ---------------- Campaigns ----------------
-  type Outcome = { who: string; delivered: number; open?: number; click?: number; report?: number }
+  // Stage offsets relative to the click day: landed = click +5 min, submitted = click +17 min.
+  type Outcome = {
+    who: string
+    delivered: number
+    open?: number
+    click?: number
+    landed?: boolean // simulated phishing page rendered after the click
+    submitted?: boolean // credentials typed on the simulated page (values discarded, never stored)
+    report?: number
+  }
   const enroll = async (campaignId: string, outcomes: Outcome[]) => {
     for (const o of outcomes) {
+      const didLand = o.landed === true && o.click !== undefined
+      const didSubmit = o.submitted === true && didLand
       const e = await db.enrollment.create({
         data: {
           campaignId,
@@ -288,6 +299,8 @@ async function main() {
           deliveredAt: day(o.delivered, 9, 15),
           openedAt: o.open !== undefined ? day(o.open, 11, 30) : null,
           clickedAt: o.click !== undefined ? day(o.click, 13, 45) : null,
+          landedAt: didLand ? day(o.click as number, 13, 50) : null,
+          submittedAt: didSubmit ? day(o.click as number, 14, 2) : null,
           reportedAt: o.report !== undefined ? day(o.report, 15, 10) : null,
           createdAt: day(o.delivered, 9, 14),
         },
@@ -297,6 +310,18 @@ async function main() {
       ]
       if (o.open !== undefined) evs.push({ type: 'OPEN', at: day(o.open, 11, 30) })
       if (o.click !== undefined) evs.push({ type: 'CLICK', at: day(o.click, 13, 45) })
+      if (didLand)
+        evs.push({
+          type: 'LANDED',
+          at: day(o.click as number, 13, 50),
+          note: 'Simulated phishing page rendered',
+        })
+      if (didSubmit)
+        evs.push({
+          type: 'SUBMITTED',
+          at: day(o.click as number, 14, 2),
+          note: 'Credentials entered on simulated page — input values discarded, never stored',
+        })
       if (o.report !== undefined)
         evs.push({
           type: 'REPORT',
@@ -329,11 +354,11 @@ async function main() {
     },
   })
   await enroll(c1.id, [
-    { who: 'Priya Nair', delivered: 32, open: 32, click: 31 },
-    { who: 'Marcus Chen', delivered: 32, open: 32, click: 31, report: 30 },
+    { who: 'Priya Nair', delivered: 32, open: 32, click: 31, landed: true, submitted: true },
+    { who: 'Marcus Chen', delivered: 32, open: 32, click: 31, landed: true, submitted: true, report: 30 },
     { who: 'Elena Petrova', delivered: 32, open: 31, report: 31 },
     { who: 'Arjun Mehta', delivered: 32, open: 33 },
-    { who: 'Sofia Rossi', delivered: 32, open: 32, click: 30 },
+    { who: 'Sofia Rossi', delivered: 32, open: 32, click: 30, landed: true },
     { who: 'David Kim', delivered: 32, open: 31, report: 29 },
     { who: 'Ingrid Svensson', delivered: 32 },
   ])
@@ -353,10 +378,10 @@ async function main() {
   })
   await enroll(c2.id, [
     { who: 'Priya Nair', delivered: 14, open: 14, report: 14 },
-    { who: 'Marcus Chen', delivered: 14, open: 14, click: 13 },
+    { who: 'Marcus Chen', delivered: 14, open: 14, click: 13, landed: true },
     { who: 'Elena Petrova', delivered: 14, open: 13, report: 13 },
     { who: 'Ingrid Svensson', delivered: 14, open: 14 },
-    { who: 'Hannah Lee', delivered: 14, open: 13, click: 12, report: 12 },
+    { who: 'Hannah Lee', delivered: 14, open: 13, click: 12, landed: true, submitted: true, report: 12 },
   ])
 
   // Campaign 3 — RUNNING, launched 5 days ago, partial activity (live demo target)
@@ -373,11 +398,11 @@ async function main() {
     },
   })
   await enroll(c3.id, [
-    { who: 'Priya Nair', delivered: 5, open: 5, click: 4 },
-    { who: 'Marcus Chen', delivered: 5, open: 4 },
+    { who: 'Priya Nair', delivered: 5, open: 5, click: 4, landed: true, submitted: true },
+    { who: 'Marcus Chen', delivered: 5, open: 4, click: 4, landed: true },
     { who: 'Grace Wanjiru', delivered: 5, open: 4, report: 3 },
     { who: 'Elena Petrova', delivered: 5, open: 3, report: 2 },
-    { who: 'Hannah Lee', delivered: 5 },
+    { who: 'Hannah Lee', delivered: 5, open: 5 },
     { who: 'Omar Farouk', delivered: 5 },
   ])
 
@@ -397,6 +422,37 @@ async function main() {
       data: { campaignId: c4.id, participantId: participants[who].id },
     })
   }
+
+  const tEsign = await db.template.create({
+    data: {
+      name: 'AI Studio — E-Signature Request',
+      category: 'Credential Harvesting (simulated)',
+      difficulty: 'hard',
+      subject: 'eSign: "Offer Letter — Senior Analyst role" awaits your signature',
+      senderName: 'NexumTech People Team via SignFlow',
+      senderEmail: 'signflow-noreply@notifications.acme-corp.test',
+      landingMessage:
+        'AI-crafted hard-difficulty lure: it references a plausible internal process and a real-looking document portal. The tells are subtle — the portal domain is not the approved vendor domain, and the message creates curiosity pressure with an attachment-like button. Verify signing requests in the HR system directly.',
+      redFlags: J([
+        'Very subtle: sender domain differs from the approved vendor list',
+        'Curiosity pressure — a confidential "offer letter" you were not expecting',
+        'Login required before viewing the document (classic harvest pattern)',
+        'No internal ticket or reference number',
+      ]),
+      bodyHtml: emailShell(
+        '#4a148c',
+        'SignFlow · Document Portal',
+        `<p>Hi,</p>
+        <p><b>"Offer Letter — Senior Analyst (Fin-2025-118)"</b> is waiting for your e-signature. The document will be archived after 72 hours.</p>
+        <p style="margin:22px 0;">${btn('Review &amp; sign document')}</p>
+        <p>You may be asked to sign in with your work account to view the document.</p>
+        <p>SignFlow for NexumTech · People Team</p>`
+      ),
+      isBuiltIn: false,
+      aiGenerated: true,
+      createdAt: day(3),
+    },
+  })
 
   // ---------------- Training modules ----------------
   const modules = [

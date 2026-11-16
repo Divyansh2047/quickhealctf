@@ -5,11 +5,15 @@
 import { format, formatDistanceToNow } from "date-fns";
 import {
   CheckCircle2,
+  Eye,
+  ExternalLink,
   FlagTriangleRight,
+  KeyRound,
   MailOpen,
   MousePointerClick,
   RefreshCw,
   Send,
+  ShieldCheck,
   TriangleAlert,
   XCircle,
   type LucideIcon,
@@ -21,7 +25,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { CampaignStatus, Difficulty, StatsEvent } from "./api";
+import type { CampaignStatus, Difficulty, EventType, StatsEvent } from "./api";
 
 /* ------------------------------ helpers ------------------------------ */
 
@@ -72,9 +76,10 @@ export function initials(name: string): string {
     .join("");
 }
 
-/** Fetch + render a human name for an event type (verb form). */
+/** Icon, color and verb metadata for every simulated event type — shared by
+ * the Overview live feed, stage dots and any event list. */
 export const EVENT_META: Record<
-  StatsEvent["type"],
+  EventType,
   { icon: LucideIcon; className: string; bg: string; verb: string }
 > = {
   DELIVERED: {
@@ -84,7 +89,7 @@ export const EVENT_META: Record<
     verb: "received",
   },
   OPEN: {
-    icon: MailOpen,
+    icon: Eye,
     className: "text-emerald-400",
     bg: "bg-emerald-500/15 border-emerald-500/30",
     verb: "opened",
@@ -95,13 +100,144 @@ export const EVENT_META: Record<
     bg: "bg-red-500/15 border-red-500/30",
     verb: "clicked the link in",
   },
+  LANDED: {
+    icon: ExternalLink,
+    className: "text-amber-400",
+    bg: "bg-amber-500/15 border-amber-500/30",
+    verb: "landed on the simulated page in",
+  },
+  SUBMITTED: {
+    icon: KeyRound,
+    className: "text-red-300",
+    bg: "bg-red-500/25 border-red-500/40",
+    verb: "submitted credentials on the simulated page in",
+  },
   REPORT: {
-    icon: FlagTriangleRight,
-    className: "text-teal-400",
-    bg: "bg-teal-500/15 border-teal-500/30",
+    icon: ShieldCheck,
+    className: "text-emerald-300",
+    bg: "bg-emerald-500/20 border-emerald-500/40",
     verb: "reported",
   },
 };
+
+/* ------------------------- lifecycle stage dots ------------------------- */
+
+export const STAGE_SEQUENCE = [
+  { key: "delivered", label: "delivered", icon: Send, className: "text-zinc-300" },
+  { key: "opened", label: "opened", icon: Eye, className: "text-emerald-400" },
+  { key: "clicked", label: "clicked", icon: MousePointerClick, className: "text-red-400" },
+  { key: "landed", label: "landed", icon: ExternalLink, className: "text-amber-400" },
+  { key: "submitted", label: "submitted", icon: KeyRound, className: "text-red-300" },
+  { key: "reported", label: "reported", icon: ShieldCheck, className: "text-emerald-300" },
+] as const satisfies ReadonlyArray<{
+  key: "delivered" | "opened" | "clicked" | "landed" | "submitted" | "reported";
+  label: string;
+  icon: LucideIcon;
+  className: string;
+}>;
+
+export interface StageFlags {
+  opened: boolean;
+  clicked: boolean;
+  landed: boolean;
+  submitted: boolean;
+  reported: boolean;
+}
+
+/** Tiny icon sequence showing the phishing lifecycle for one email row. */
+export function StageDots({ stage }: { stage: StageFlags }) {
+  const reached: Record<(typeof STAGE_SEQUENCE)[number]["key"], boolean> = {
+    delivered: true,
+    opened: stage.opened,
+    clicked: stage.clicked,
+    landed: stage.landed,
+    submitted: stage.submitted,
+    reported: stage.reported,
+  };
+  return (
+    <span
+      className="flex items-center gap-0.5"
+      role="img"
+      aria-label={
+        `lifecycle — delivered, ${["opened", "clicked", "landed", "submitted", "reported"]
+          .filter((k) => reached[k as keyof StageFlags])
+          .join(", ") || "no activity yet"
+      }`
+    }
+  >
+    {STAGE_SEQUENCE.map((s, i) => {
+      const Icon = s.icon;
+      const on = reached[s.key];
+      return (
+        <span key={s.key} className="flex items-center">
+          {i > 0 ? (
+            <span
+              aria-hidden="true"
+              className={cn("h-px w-1", on ? "bg-border" : "bg-border/40")}
+            />
+          ) : null}
+          <Icon
+            aria-hidden="true"
+            className={cn("size-3", on ? s.className : "text-muted-foreground/30")}
+          />
+        </span>
+      );
+    })}
+  </span>
+  );
+}
+
+/* --------------------- simulated email body rendering -------------------- */
+
+/**
+ * Renders a simulated email body (template bodyHtml) inside the white
+ * "mail client" surface used everywhere previews appear.
+ *
+ * - Pass `onLinkClick` to intercept anchor clicks (Test Inbox lifecycle).
+ * - Pass `inert` (or nothing) for read-only previews — links are disabled.
+ */
+export function SimulatedEmailBody({
+  bodyHtml,
+  onLinkClick,
+  inert,
+  label,
+  className,
+}: {
+  bodyHtml: string;
+  onLinkClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  inert?: boolean;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      onClickCapture={onLinkClick}
+      aria-label={label ?? "Simulated email body"}
+      className={cn(
+        "rounded-md border bg-white p-4 text-slate-900 [&_a]:cursor-pointer [&_a]:underline",
+        inert && "[&_a]:pointer-events-none",
+        className
+      )}
+      dangerouslySetInnerHTML={{ __html: bodyHtml }}
+    />
+  );
+}
+
+/* --------------------------- severity helpers --------------------------- */
+
+/** Chip classes for a 0-100 vulnerability index (higher = worse). */
+export function vulnerabilityClasses(v: number): string {
+  if (v >= 70) return "border-red-500/40 bg-red-500/15 text-red-400";
+  if (v >= 45) return "border-amber-500/40 bg-amber-500/15 text-amber-400";
+  return "border-emerald-500/40 bg-emerald-500/15 text-emerald-400";
+}
+
+/** Chip classes for an AI analysis severity. */
+export function aiSeverityClasses(severity: "high" | "medium" | "low"): string {
+  if (severity === "high") return "border-red-500/40 bg-red-500/15 text-red-400";
+  if (severity === "medium") return "border-amber-500/40 bg-amber-500/15 text-amber-400";
+  return "border-zinc-500/40 bg-zinc-500/15 text-zinc-300";
+}
 
 /* --------------------------- shared components --------------------------- */
 

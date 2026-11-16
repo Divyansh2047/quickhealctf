@@ -6,10 +6,13 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import {
+  DatabaseBackup,
+  Download,
   MoreHorizontal,
   Plus,
   ShieldCheck,
   Shield,
+  Trash2,
   UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -57,15 +60,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { api, apiErrorMessage } from "../api";
+import { api, apiErrorMessage, exportCsvUrl, purgeRetention } from "../api";
 import type { Participant } from "../api";
 import { useCompliance, useParticipants } from "../hooks";
-import { EmptyState, ErrorState, SectionTitle, relativeTime } from "../shared";
+import { EmptyState, ErrorState, SectionTitle, relativeTime, shortDateTime } from "../shared";
 
 const SAFEGUARDS: { title: string; detail: string }[] = [
   {
     title: "No credential collection",
-    detail: "Simulated landing pages never contain password inputs — clicking a link only teaches.",
+    detail:
+      "Simulated pages may show a sign-in form, but what you type is cleared locally and never transmitted or stored — only the fact of a submission is recorded.",
   },
   {
     title: "No real email delivery",
@@ -593,6 +597,7 @@ function RetentionTab({
   const [days, setDays] = useState(String(retention.defaultRetentionDays));
   const [autoPurge, setAutoPurge] = useState(retention.autoPurge);
   const [saving, setSaving] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const oldestAgeDays = retention.oldestEventAt
     ? Math.max(
@@ -622,7 +627,23 @@ function RetentionTab({
     }
   };
 
+  const runPurge = async () => {
+    setPurging(true);
+    try {
+      const res = await purgeRetention();
+      toast.success(`${res.purged} event${res.purged === 1 ? "" : "s"} removed`, {
+        description: `Cutoff ${shortDateTime(res.cutoffAt)} · auto-purge ${res.autoPurge ? "enabled" : "disabled"}`,
+      });
+      onChanged();
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+    } finally {
+      setPurging(false);
+    }
+  };
+
   return (
+    <div className="space-y-4">
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="rounded-xl p-4 sm:p-6">
         <h2 className="text-sm font-semibold">Retention policy</h2>
@@ -692,6 +713,62 @@ function RetentionTab({
           </p>
         </div>
       </div>
+    </div>
+
+    <Card className="rounded-xl p-4 sm:p-6">
+      <div className="flex items-center gap-2">
+        <DatabaseBackup className="size-4 text-teal-400" aria-hidden="true" />
+        <h2 className="text-sm font-semibold">Data export &amp; retention purge</h2>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Take the audit trail with you (CSV download), or trigger the retention purge ahead of
+        schedule. Exports include consent, delivery and reporting events only — never credential
+        values (there are none to include).
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(["participants", "events", "campaigns"] as const).map((entity) => (
+          <a key={entity} href={exportCsvUrl(entity)} download={`${entity}.csv`}>
+            <Button variant="outline" size="sm">
+              <Download className="size-3.5" aria-hidden="true" />
+              Export {entity}
+            </Button>
+          </a>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+        <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+          Running the purge removes every simulated event older than the current retention window
+          ({retention.defaultRetentionDays} days) immediately.
+        </p>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={purging}>
+              <Trash2 className="size-4" aria-hidden="true" />
+              {purging ? "Purging…" : "Run retention purge now"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Run retention purge now?</AlertDialogTitle>
+              <AlertDialogDescription>
+                All simulated events older than {retention.defaultRetentionDays} days will be
+                permanently deleted. This cannot be undone — export first if you need the history.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-white hover:bg-destructive/90"
+                onClick={() => void runPurge()}
+                disabled={purging}
+              >
+                Purge now
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </Card>
     </div>
   );
 }

@@ -8,10 +8,72 @@ import {
   computeResilienceScore,
   pct,
   readRetentionPolicy,
+  type DepartmentStat,
   type TrendPoint,
 } from '@/app/api/_lib/shared'
+import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
+
+/* ------------------------- report-only analytics ------------------------- */
+
+const TIME_BUCKETS = ['< 1h', '1–6h', '6–24h', '1–3 days', '> 3 days'] as const
+
+/** Enrollment rows as loaded by this route (participant name + department). */
+type ReportEnrollment = Prisma.EnrollmentGetPayload<{
+  include: { participant: { select: { name: true; department: true } } }
+}>
+
+/** Bucket enrollments by how fast participants reported (reportedAt - deliveredAt). */
+function buildTimeToReport(enrollments: ReportEnrollment[]): { bucket: string; count: number }[] {
+  const buckets = TIME_BUCKETS.map((bucket) => ({ bucket, count: 0 }))
+  const HOUR = 60 * 60 * 1000
+  for (const enrollment of enrollments) {
+    if (!enrollment.reportedAt || !enrollment.deliveredAt) continue
+    const diffMs = enrollment.reportedAt.getTime() - enrollment.deliveredAt.getTime()
+    if (diffMs < 0) continue
+    const hours = diffMs / HOUR
+    const index = hours < 1 ? 0 : hours < 6 ? 1 : hours < 24 ? 2 : hours < 72 ? 3 : 4
+    buckets[index].count += 1
+  }
+  return buckets
+}
+
+/** Participants who clicked in 2+ campaigns — coaching candidates. */
+function buildRepeatClickers(
+  enrollments: ReportEnrollment[]
+): { name: string; department: string; clicks: number; submitted: number; reports: number }[] {
+  const perParticipant = new Map<
+    string,
+    { name: string; department: string; clicks: number; submitted: number; reports: number }
+  >()
+  for (const enrollment of enrollments) {
+    const entry =
+      perParticipant.get(enrollment.participantId) ?? {
+        name: enrollment.participant.name,
+        department: enrollment.participant.department,
+        clicks: 0,
+        submitted: 0,
+        reports: 0,
+      }
+    if (enrollment.clickedAt !== null) entry.clicks += 1
+    if (enrollment.submittedAt !== null) entry.submitted += 1
+    if (enrollment.reportedAt !== null) entry.reports += 1
+    perParticipant.set(enrollment.participantId, entry)
+  }
+  return [...perParticipant.values()]
+    .filter((entry) => entry.clicks >= 2)
+    .sort((a, b) => b.clicks - a.clicks || b.reports - a.reports || a.name.localeCompare(b.name))
+    .slice(0, 6)
+}
+
+/** Name of the department with the highest vulnerabilityIndex ('' when none). */
+function pickTopRiskyDepartment(departments: DepartmentStat[]): string {
+  const risky = departments
+    .filter((department) => department.delivered > 0)
+    .sort((a, b) => b.vulnerabilityIndex - a.vulnerabilityIndex)[0]
+  return risky ? risky.department : ''
+}
 
 export async function GET() {
   try {
@@ -19,7 +81,9 @@ export async function GET() {
       await Promise.all([
         db.participant.findMany(),
         db.campaign.findMany({ include: { template: true, enrollments: true } }),
-        db.enrollment.findMany({ include: { participant: { select: { department: true } } } }),
+        db.enrollment.findMany({
+          include: { participant: { select: { name: true, department: true } } },
+        }),
         db.trackedEvent.findMany(),
         db.trainingModule.findMany(),
         db.trainingCompletion.findMany(),
@@ -29,6 +93,8 @@ export async function GET() {
     const delivered = events.filter((event) => event.type === 'DELIVERED').length
     const opens = events.filter((event) => event.type === 'OPEN').length
     const clicks = events.filter((event) => event.type === 'CLICK').length
+    const landed = events.filter((event) => event.type === 'LANDED').length
+    const submitted = events.filter((event) => event.type === 'SUBMITTED').length
     const reports = events.filter((event) => event.type === 'REPORT').length
 
     const rates = computeRates(delivered, opens, clicks, reports)
@@ -54,6 +120,7 @@ export async function GET() {
       resilienceScore,
       trainingCompletionRate,
       trainingCompletions,
+      stageCounts: { landed, submitted },
     }
 
     const trend: TrendPoint[] = buildTrend(events)
@@ -146,6 +213,18 @@ export async function GET() {
     const report = {
       generatedAt: new Date().toISOString(),
       overall,
+      funnel: [
+        { stage: 'delivered', count: delivered },
+        { stage: 'opened', count: opens },
+        { stage: 'clicked', count: clicks },
+        { stage: 'landed', count: landed },
+        { stage: 'submitted', count: submitted },
+        { stage: 'reported', count: reports },
+      ],
+      timeToReport: buildTimeToReport(enrollments),
+      repeatClickers: buildRepeatClickers(enrollments),
+      repeatClickersNote: 'Visible to administrators only for coaching.',
+      topRiskyDepartment: pickTopRiskyDepartment(departments),
       trend,
       campaigns: reportCampaigns,
       departments,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ADMIN_ACTOR, logAudit } from '@/lib/audit'
 import {
+  asBoolean,
   asRecord,
   asString,
   asStringArray,
@@ -59,8 +60,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
+    const aiGenerated = asBoolean(body.aiGenerated) ?? false
+
     const created = await db.template.create({
-      data: { ...templateFieldsToData(fields), isBuiltIn: false },
+      data: { ...templateFieldsToData(fields), isBuiltIn: false, aiGenerated },
     })
 
     await logAudit('TEMPLATE_CREATED', ADMIN_ACTOR, `Template "${created.name}" created`)

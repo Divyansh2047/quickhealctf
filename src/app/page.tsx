@@ -15,6 +15,8 @@ import {
   MailWarning,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,8 +25,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import AnalyticsView from "@/components/phishguard/views/AnalyticsView";
+import AiStudioView from "@/components/phishguard/views/AiStudioView";
 import CampaignsView from "@/components/phishguard/views/CampaignsView";
 import ComplianceView from "@/components/phishguard/views/ComplianceView";
+import LeaderboardView from "@/components/phishguard/views/LeaderboardView";
 import OverviewView from "@/components/phishguard/views/OverviewView";
 import TemplatesView from "@/components/phishguard/views/TemplatesView";
 import TestInboxView from "@/components/phishguard/views/TestInboxView";
@@ -35,8 +39,10 @@ const NAV_ITEMS: { key: ViewKey; label: string; icon: LucideIcon }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "campaigns", label: "Campaigns", icon: Crosshair },
   { key: "templates", label: "Templates", icon: MailWarning },
+  { key: "ai-studio", label: "AI Studio", icon: Sparkles },
   { key: "inbox", label: "Test Inbox", icon: Inbox },
   { key: "training", label: "Training", icon: GraduationCap },
+  { key: "leaderboard", label: "Leaderboard", icon: Trophy },
   { key: "analytics", label: "Analytics", icon: ChartColumnBig },
   { key: "compliance", label: "Compliance", icon: ShieldCheck },
 ];
@@ -160,8 +166,10 @@ export default function Home() {
               {view === "overview" ? <OverviewView onNavigate={setView} /> : null}
               {view === "campaigns" ? <CampaignsView /> : null}
               {view === "templates" ? <TemplatesView /> : null}
+              {view === "ai-studio" ? <AiStudioView /> : null}
               {view === "inbox" ? <TestInboxView onNavigate={setView} /> : null}
               {view === "training" ? <TrainingView /> : null}
+              {view === "leaderboard" ? <LeaderboardView /> : null}
               {view === "analytics" ? <AnalyticsView /> : null}
               {view === "compliance" ? <ComplianceView /> : null}
             </motion.div>

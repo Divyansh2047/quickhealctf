@@ -19,7 +19,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import type { DepartmentStats, TrendPoint } from "./api";
+import type { DepartmentStats, TimeToReportBucket, TrendPoint } from "./api";
 import { resilienceLabel } from "./shared";
 
 /* Palette: zinc / emerald / red / teal / amber — no blues or indigos. */
@@ -256,6 +256,70 @@ export function FunnelBars({ stages }: { stages: FunnelStage[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* --------------------------- time-to-report bars --------------------------- */
+
+/** How fast participants reported phishes after receiving them. */
+export function TimeToReportChart({ data }: { data: TimeToReportBucket[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+        <XAxis
+          dataKey="bucket"
+          tick={{ fill: CHART_COLORS.tick, fontSize: 11 }}
+          axisLine={{ stroke: CHART_COLORS.grid }}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: CHART_COLORS.tick, fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip contentStyle={TOOLTIP_STYLE} />
+        <Bar
+          dataKey="count"
+          name="reports"
+          fill={CHART_COLORS.reports}
+          radius={[4, 4, 0, 0]}
+          barSize={38}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ------------------------------ risk gauge (AI) ------------------------------ */
+
+/** Semicircular 0-100 risk gauge for the Phish Analyzer (high = red). */
+export function RiskGauge({ score }: { score: number }) {
+  const clamped = Math.min(100, Math.max(0, Math.round(score)));
+  const color =
+    clamped >= 70 ? CHART_COLORS.clicks : clamped >= 40 ? CHART_COLORS.amber : CHART_COLORS.opens;
+  return (
+    <div className="relative mx-auto" aria-label={`Risk score ${clamped} out of 100`}>
+      <RadialBarChart
+        width={220}
+        height={150}
+        cx="50%"
+        cy="100%"
+        innerRadius="85%"
+        outerRadius="100%"
+        data={[{ name: "risk", value: clamped, fill: color }]}
+        startAngle={180}
+        endAngle={0}
+      >
+        <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+        <RadialBar background={{ fill: "#27272a" }} dataKey="value" cornerRadius={8} />
+      </RadialBarChart>
+      <div className="pointer-events-none absolute inset-x-0 bottom-1 flex flex-col items-center">
+        <span className="text-3xl font-semibold tracking-tight tabular-nums">{clamped}</span>
+        <span className="text-xs font-medium text-muted-foreground">risk score</span>
+      </div>
     </div>
   );
 }

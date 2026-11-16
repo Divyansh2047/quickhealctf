@@ -6,14 +6,19 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
+  ArrowRight,
   BarChart3,
   CheckCircle2,
   EyeOff,
   Gauge,
+  Hourglass,
+  Lock,
   Printer,
   ShieldCheck,
+  Sparkles,
   TriangleAlert,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,20 +35,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { DepartmentRateChart, FunnelBars, ResilienceGauge, TrendChart } from "../charts";
+import {
+  DepartmentRateChart,
+  FunnelBars,
+  ResilienceGauge,
+  TimeToReportChart,
+  TrendChart,
+} from "../charts";
 import type { FunnelStage } from "../charts";
+import { generateReportSummary, apiErrorMessage } from "../api";
+import type { AiReportSummary, AiSource, FunnelPoint } from "../api";
 import { useAnalyticsReport } from "../hooks";
 import {
   EmptyState,
   ErrorState,
   StatusBadge,
   pct,
+  vulnerabilityClasses,
   SectionTitle,
 } from "../shared";
 
 export default function AnalyticsView() {
   const { data, loading, error, refresh } = useAnalyticsReport();
   const [suppressSmall, setSuppressSmall] = useState(true);
+
+  // AI executive narrative state
+  const [summary, setSummary] = useState<AiReportSummary | null>(null);
+  const [summarySource, setSummarySource] = useState<AiSource | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
 
   const departments = data?.departments ?? [];
   const visibleDepartments = suppressSmall
@@ -55,15 +74,60 @@ export default function AnalyticsView() {
 
   const overall = data?.overall;
 
+  const generateNarrative = async () => {
+    if (!data) return;
+    setSummarizing(true);
+    try {
+      const res = await generateReportSummary(data);
+      setSummary(res.summary);
+      setSummarySource(res.source);
+      toast.success("Executive narrative generated");
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
   const funnelStages = useMemo<FunnelStage[]>(() => {
+    const meta: Record<FunnelPoint["stage"], { label: string; color: string }> = {
+      delivered: { label: "Delivered", color: "bg-zinc-400" },
+      opened: { label: "Opened", color: "bg-emerald-500" },
+      clicked: { label: "Clicked", color: "bg-red-500" },
+      landed: { label: "Landed", color: "bg-amber-500" },
+      submitted: { label: "Submitted", color: "bg-red-700" },
+      reported: { label: "Reported", color: "bg-teal-400" },
+    };
+    if (data?.funnel?.length) {
+      return data.funnel
+        .filter((f) => meta[f.stage])
+        .map((f) => ({
+          label: meta[f.stage].label,
+          count: f.count,
+          color: meta[f.stage].color,
+          track: "bg-muted",
+        }));
+    }
     if (!overall) return [];
-    return [
-      { label: "Delivered", count: overall.delivered, color: "bg-zinc-400", track: "bg-muted" },
-      { label: "Opened", count: overall.opens, color: "bg-emerald-500", track: "bg-muted" },
-      { label: "Clicked", count: overall.clicks, color: "bg-red-500", track: "bg-muted" },
-      { label: "Reported", count: overall.reports, color: "bg-teal-400", track: "bg-muted" },
-    ];
-  }, [overall]);
+    // Fallback while the backend upgrade rolls out: derive later stages.
+    return (
+      [
+        ["delivered", overall.delivered],
+        ["opened", overall.opens],
+        ["clicked", overall.clicks],
+        ["landed", overall.stageCounts?.landed ?? null],
+        ["submitted", overall.stageCounts?.submitted ?? null],
+        ["reported", overall.reports],
+      ] as [FunnelPoint["stage"], number | null][]
+    )
+      .filter(([, count]) => count !== null)
+      .map(([stage, count]) => ({
+        label: meta[stage].label,
+        count: count as number,
+        color: meta[stage].color,
+        track: "bg-muted",
+      }));
+  }, [data, overall]);
 
   const handlePrint = () => {
     document.body.classList.add("printing-report");
@@ -145,11 +209,209 @@ export default function AnalyticsView() {
               <Card className="rounded-xl p-4 sm:p-6 xl:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-sm font-semibold">Campaign funnel</h2>
-                  <span className="text-xs text-muted-foreground">all campaigns combined</span>
+                  <span className="text-xs text-muted-foreground">
+                    delivered → opened → clicked → landed → submitted → reported
+                  </span>
                 </div>
                 <FunnelBars stages={funnelStages} />
               </Card>
             </div>
+
+            {/* Time to report + repeat clickers */}
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Card className="rounded-xl p-4 sm:p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold">
+                    <Hourglass className="size-4 text-teal-400" aria-hidden="true" />
+                    Time to report
+                  </h2>
+                  <span className="text-xs text-muted-foreground">receipt → report</span>
+                </div>
+                {(data.timeToReport?.length ?? 0) === 0 ? (
+                  <EmptyState
+                    icon={Hourglass}
+                    title="No reporting speed data yet"
+                    hint="Buckets appear once participants report simulated phishes."
+                    className="border-0 py-8"
+                  />
+                ) : (
+                  <>
+                    <TimeToReportChart data={data.timeToReport ?? []} />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Faster reporting blunts real attacks — celebrate teams in the left buckets.
+                    </p>
+                  </>
+                )}
+              </Card>
+
+              <Card className="rounded-xl p-4 sm:p-6">
+                <div className="mb-1 flex items-center gap-2">
+                  <Lock className="size-4 text-amber-400" aria-hidden="true" />
+                  <h2 className="text-sm font-semibold">Repeat clickers — coaching queue</h2>
+                </div>
+                {(data.repeatClickers?.length ?? 0) === 0 ? (
+                  <EmptyState
+                    icon={CheckCircle2}
+                    title="No repeat clickers"
+                    hint="Participants who clicked more than once across campaigns would appear here for targeted coaching."
+                    className="border-0 py-8"
+                  />
+                ) : (
+                  <div className="max-h-64 overflow-y-auto rounded-lg border">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-card">
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead className="text-right">Clicks</TableHead>
+                          <TableHead className="text-right">Submitted</TableHead>
+                          <TableHead className="text-right">Reports</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(data.repeatClickers ?? []).map((rc, i) => (
+                          <TableRow key={`${rc.name}-${i}`}>
+                            <TableCell className="font-medium">{rc.name}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {rc.department}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-red-400">
+                              {rc.clicks}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {rc.submitted}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-emerald-400">
+                              {rc.reports}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {data.repeatClickersNote ??
+                    "Multiple clicks across campaigns are a strong coaching signal, not a blame list."}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  Privacy: this queue uses aggregate event counts only — no message content, no
+                  keystrokes and no credentials are ever captured.
+                </p>
+              </Card>
+            </div>
+
+            {/* AI executive narrative (violet = AI feature) */}
+            <Card className="rounded-xl border-violet-500/25 p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-9 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-300"
+                  >
+                    <Sparkles className="size-4" />
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-semibold">AI executive narrative</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Turns the report into a leadership-ready story — risks, wins and next steps.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => void generateNarrative()}
+                  disabled={summarizing || !data}
+                  className="border border-violet-500/40 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25"
+                >
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  {summarizing ? "Drafting narrative…" : "Generate executive narrative"}
+                </Button>
+              </div>
+
+              {summarizing ? (
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-violet-300">
+                    <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
+                    AI is reading the tables and drafting the story…
+                  </div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-11/12" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <div className="grid gap-3 pt-2 sm:grid-cols-3">
+                    <Skeleton className="h-24 rounded-lg" />
+                    <Skeleton className="h-24 rounded-lg" />
+                    <Skeleton className="h-24 rounded-lg" />
+                  </div>
+                </div>
+              ) : summary ? (
+                <div className="mt-4 space-y-4">
+                  {summarySource === "fallback" ? (
+                    <div
+                      role="status"
+                      className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300"
+                    >
+                      <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+                      Heuristic mode (AI unavailable) — rules-based narrative below.
+                    </div>
+                  ) : null}
+                  <p className="text-sm font-medium leading-relaxed">
+                    {summary.executiveSummary}
+                  </p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {summary.narrative}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
+                        <TriangleAlert className="size-3.5" aria-hidden="true" />
+                        Key risks
+                      </p>
+                      <ul className="mt-2 space-y-1.5">
+                        {summary.keyRisks.map((r, i) => (
+                          <li key={i} className="text-xs leading-relaxed text-muted-foreground">
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                        <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                        Wins
+                      </p>
+                      <ul className="mt-2 space-y-1.5">
+                        {summary.wins.map((w, i) => (
+                          <li key={i} className="text-xs leading-relaxed text-muted-foreground">
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-teal-400">
+                        <ArrowRight className="size-3.5" aria-hidden="true" />
+                        Next steps
+                      </p>
+                      <ul className="mt-2 space-y-1.5">
+                        {summary.nextSteps.map((s, i) => (
+                          <li key={i} className="text-xs leading-relaxed text-muted-foreground">
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    AI-generated — verify numbers against the tables before publishing.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Uses the live report JSON already fetched on this page — no data leaves the
+                  platform.
+                </p>
+              )}
+            </Card>
 
             {/* Trend */}
             <Card className="rounded-xl p-4 sm:p-6">
@@ -349,6 +611,14 @@ export default function AnalyticsView() {
                     ? "Small groups (<3 participants) are suppressed to protect individual privacy."
                     : "All departments shown (suppression disabled for this view)."}
                 </p>
+                {data.topRiskyDepartment ? (
+                  <p className="print-muted mt-1 text-xs text-muted-foreground">
+                    Highest exposure: {" "}
+                    <span className="font-semibold text-red-400">
+                      {data.topRiskyDepartment}
+                    </span>
+                  </p>
+                ) : null}
                 <div className="mt-3 overflow-x-auto rounded-lg border">
                   <Table>
                     <TableHeader>
@@ -358,21 +628,53 @@ export default function AnalyticsView() {
                         <TableHead className="text-right">Delivered</TableHead>
                         <TableHead className="text-right">Click rate</TableHead>
                         <TableHead className="text-right">Report rate</TableHead>
+                        <TableHead className="text-right">Vulnerability index</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {visibleDepartments.map((d) => (
-                        <TableRow key={d.department}>
-                          <TableCell className="font-medium">{d.department}</TableCell>
+                        <TableRow
+                          key={d.department}
+                          className={
+                            data.topRiskyDepartment === d.department
+                              ? "bg-red-500/5 [&>td]:font-medium"
+                              : undefined
+                          }
+                        >
+                          <TableCell className="font-medium">
+                            <span className="flex items-center gap-2">
+                              {d.department}
+                              {data.topRiskyDepartment === d.department ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-red-500/40 bg-red-500/15 text-[10px] text-red-400"
+                                >
+                                  top risk
+                                </Badge>
+                              ) : null}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">{d.participants}</TableCell>
                           <TableCell className="text-right tabular-nums">{d.delivered}</TableCell>
                           <TableCell className="text-right tabular-nums">{pct(d.clickRate)}</TableCell>
                           <TableCell className="text-right tabular-nums">{pct(d.reportRate)}</TableCell>
+                          <TableCell className="text-right">
+                            {typeof d.vulnerabilityIndex === "number" ? (
+                              <Badge
+                                variant="outline"
+                                className={vulnerabilityClasses(d.vulnerabilityIndex)}
+                              >
+                                {Math.round(d.vulnerabilityIndex)}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                       {visibleDepartments.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="print-muted text-center text-xs text-muted-foreground">
+                          <TableCell colSpan={6} className="print-muted text-center text-xs text-muted-foreground">
                             All departments suppressed for privacy in this configuration.
                           </TableCell>
                         </TableRow>
@@ -380,6 +682,10 @@ export default function AnalyticsView() {
                     </TableBody>
                   </Table>
                 </div>
+                <p className="print-muted mt-2 text-[11px] text-muted-foreground">
+                  Vulnerability index (0-100) blends click and credential-entry exposure — higher
+                  means more coaching attention recommended.
+                </p>
               </section>
 
               {/* Top red flags */}

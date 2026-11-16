@@ -3,6 +3,7 @@
 
 import { db } from '@/lib/db'
 import { parseJsonArray } from '@/lib/events'
+import type { ZodError } from 'zod'
 import type { Enrollment, Participant, Prisma, Template, TrackedEvent } from '@prisma/client'
 
 /* ----------------------------- primitives ----------------------------- */
@@ -66,6 +67,14 @@ export function asStringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
+/** Human-readable first issue of a failed zod parse, for 400 error bodies. */
+export function zodFirstIssueMessage(error: ZodError): string {
+  const issue = error.issues[0]
+  if (!issue) return 'Invalid request body'
+  const path = issue.path.length > 0 ? issue.path.join('.') : ''
+  return path ? `${path}: ${issue.message}` : issue.message
+}
+
 /* --------------------------- serializers ------------------------------ */
 
 export type CampaignSummaryRow = Prisma.CampaignGetPayload<{
@@ -97,6 +106,8 @@ export interface CampaignSummary {
   delivered: number
   opens: number
   clicks: number
+  landed: number
+  submitted: number
   reports: number
 }
 
@@ -112,6 +123,8 @@ export interface CampaignDetail extends CampaignSummary {
     deliveredAt: string | null
     openedAt: string | null
     clickedAt: string | null
+    landedAt: string | null
+    submittedAt: string | null
     reportedAt: string | null
   }[]
 }
@@ -139,6 +152,8 @@ export function serializeCampaignSummary(campaign: CampaignSummaryRow): Campaign
     delivered: enrollments.filter((e) => e.deliveredAt !== null).length,
     opens: enrollments.filter((e) => e.openedAt !== null).length,
     clicks: enrollments.filter((e) => e.clickedAt !== null).length,
+    landed: enrollments.filter((e) => e.landedAt !== null).length,
+    submitted: enrollments.filter((e) => e.submittedAt !== null).length,
     reports: enrollments.filter((e) => e.reportedAt !== null).length,
   }
 }
@@ -158,6 +173,8 @@ export function serializeCampaignDetail(campaign: CampaignDetailRow): CampaignDe
         deliveredAt: enrollment.deliveredAt ? enrollment.deliveredAt.toISOString() : null,
         openedAt: enrollment.openedAt ? enrollment.openedAt.toISOString() : null,
         clickedAt: enrollment.clickedAt ? enrollment.clickedAt.toISOString() : null,
+        landedAt: enrollment.landedAt ? enrollment.landedAt.toISOString() : null,
+        submittedAt: enrollment.submittedAt ? enrollment.submittedAt.toISOString() : null,
         reportedAt: enrollment.reportedAt ? enrollment.reportedAt.toISOString() : null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name)),
@@ -179,6 +196,8 @@ export function serializeParticipant(participant: Participant, enrollments: Enro
       delivered: enrollments.filter((e) => e.deliveredAt !== null).length,
       opens: enrollments.filter((e) => e.openedAt !== null).length,
       clicks: enrollments.filter((e) => e.clickedAt !== null).length,
+      landed: enrollments.filter((e) => e.landedAt !== null).length,
+      submitted: enrollments.filter((e) => e.submittedAt !== null).length,
       reports: enrollments.filter((e) => e.reportedAt !== null).length,
     },
   }
@@ -197,6 +216,7 @@ export function serializeTemplate(template: Template, usageCount: number) {
     landingMessage: template.landingMessage,
     redFlags: parseJsonArray(template.redFlags),
     isBuiltIn: template.isBuiltIn,
+    aiGenerated: template.aiGenerated,
     createdAt: template.createdAt.toISOString(),
     usageCount,
   }
@@ -243,6 +263,8 @@ export interface DepartmentStat {
   reports: number
   clickRate: number
   reportRate: number
+  /** Higher = riskier: 0.6*clickRate + 0.4*(100-reportRate). */
+  vulnerabilityIndex: number
 }
 
 /**
@@ -270,6 +292,7 @@ export function buildDepartments(
         reports: 0,
         clickRate: 0,
         reportRate: 0,
+        vulnerabilityIndex: 0,
       })
     }
   }
@@ -286,6 +309,7 @@ export function buildDepartments(
   for (const item of list) {
     item.clickRate = pct(item.clicks, item.delivered)
     item.reportRate = pct(item.reports, item.delivered)
+    item.vulnerabilityIndex = Math.round(0.6 * item.clickRate + 0.4 * (100 - item.reportRate))
   }
   return list.sort((a, b) => b.delivered - a.delivered || a.department.localeCompare(b.department))
 }

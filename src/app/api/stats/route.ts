@@ -35,6 +35,8 @@ export async function GET() {
     const delivered = events.filter((event) => event.type === 'DELIVERED').length
     const opens = events.filter((event) => event.type === 'OPEN').length
     const clicks = events.filter((event) => event.type === 'CLICK').length
+    const landed = events.filter((event) => event.type === 'LANDED').length
+    const submitted = events.filter((event) => event.type === 'SUBMITTED').length
     const reports = events.filter((event) => event.type === 'REPORT').length
 
     const rates = computeRates(delivered, opens, clicks, reports)
@@ -85,8 +87,18 @@ export async function GET() {
         delivered,
         opens,
         clicks,
+        landed,
+        submitted,
         reports,
       },
+      funnel: [
+        { stage: 'delivered', count: delivered },
+        { stage: 'opened', count: opens },
+        { stage: 'clicked', count: clicks },
+        { stage: 'landed', count: landed },
+        { stage: 'submitted', count: submitted },
+        { stage: 'reported', count: reports },
+      ],
       rates,
       trainingCompletionRate,
       resilienceScore,

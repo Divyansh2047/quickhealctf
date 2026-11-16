@@ -10,6 +10,7 @@ import {
   MailWarning,
   Pencil,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -134,6 +135,12 @@ export default function TemplatesView() {
                     built-in
                   </Badge>
                 ) : null}
+                {t.aiGenerated ? (
+                  <Badge className="border border-violet-500/40 bg-violet-500/15 text-violet-400">
+                    <Sparkles className="size-3" aria-hidden="true" />
+                    AI
+                  </Badge>
+                ) : null}
               </div>
               <h3 className="mt-2 text-sm font-semibold">{t.name}</h3>
               <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{t.subject}</p>
@@ -211,6 +218,12 @@ function TemplateDetailDialog({
                   {template.category}
                 </Badge>
                 <DifficultyBadge difficulty={template.difficulty} />
+                {template.aiGenerated ? (
+                  <Badge className="border border-violet-500/40 bg-violet-500/15 text-violet-400">
+                    <Sparkles className="size-3" aria-hidden="true" />
+                    AI
+                  </Badge>
+                ) : null}
               </div>
               <DialogDescription id="tpl-detail-desc">
                 Subject: <span className="font-medium text-foreground">{template.subject}</span>

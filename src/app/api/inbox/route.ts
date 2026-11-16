@@ -32,8 +32,13 @@ export async function GET(request: NextRequest) {
       deliveredAt: enrollment.deliveredAt ? enrollment.deliveredAt.toISOString() : '',
       opened: enrollment.openedAt !== null,
       clicked: enrollment.clickedAt !== null,
+      landed: enrollment.landedAt !== null,
+      submitted: enrollment.submittedAt !== null,
       reported: enrollment.reportedAt !== null,
+      landedAt: enrollment.landedAt ? enrollment.landedAt.toISOString() : null,
+      submittedAt: enrollment.submittedAt ? enrollment.submittedAt.toISOString() : null,
       template: {
+        id: enrollment.campaign.template.id,
         subject: enrollment.campaign.template.subject,
         senderName: enrollment.campaign.template.senderName,
         senderEmail: enrollment.campaign.template.senderEmail,
@@ -41,6 +46,7 @@ export async function GET(request: NextRequest) {
         landingMessage: enrollment.campaign.template.landingMessage,
         category: enrollment.campaign.template.category,
         difficulty: enrollment.campaign.template.difficulty,
+        aiGenerated: enrollment.campaign.template.aiGenerated,
         redFlags: parseJsonArray(enrollment.campaign.template.redFlags),
       },
     }))

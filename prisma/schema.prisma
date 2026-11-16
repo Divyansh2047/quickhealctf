@@ -36,6 +36,7 @@ model Template {
   landingMessage String // educational feedback shown when a simulated link is clicked
   redFlags       String // JSON array of red flag annotations
   isBuiltIn      Boolean    @default(false)
+  aiGenerated    Boolean    @default(false) // produced by the AI Template Studio (LLM)
   createdAt      DateTime   @default(now())
   campaigns      Campaign[]
 }
@@ -65,6 +66,8 @@ model Enrollment {
   deliveredAt   DateTime?
   openedAt      DateTime?
   clickedAt     DateTime?
+  landedAt      DateTime? // simulated phishing page was opened after a click
+  submittedAt   DateTime? // simulated credentials were entered on the phishing page (values are NEVER stored)
   reportedAt    DateTime?
   createdAt     DateTime       @default(now())
   events        TrackedEvent[]
