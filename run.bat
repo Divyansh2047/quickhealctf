@@ -20,7 +20,7 @@ set "APP_ORIGIN=http://127.0.0.1:3000"
 set "COOKIE_SECURE=false"
 call npm.cmd run db:push
 if errorlevel 1 goto failed
-call npm.cmd run templates:install
+call npm.cmd run demo:install
 if errorlevel 1 goto failed
 echo Open http://127.0.0.1:3000 when the server is ready.
 call npm.cmd run dev

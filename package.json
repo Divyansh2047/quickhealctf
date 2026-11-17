@@ -19,7 +19,8 @@
     "retention:run": "node --import tsx scripts/purge.ts",
     "verify:api": "node scripts/verify.mjs",
     "verify:browser": "node scripts/verify.mjs --browser",
-    "templates:install": "node --env-file=.env --import tsx scripts/install-training.ts"
+    "templates:install": "node --env-file=.env --import tsx scripts/install-training.ts",
+    "demo:install": "npm run templates:install -- --with-demo"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",

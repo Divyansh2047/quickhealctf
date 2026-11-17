@@ -4,7 +4,7 @@ PhishGuard is a local security awareness lab. Participants practice recognizing 
 
 ## Run it locally
 
-Install Node.js 20.19 or later with npm. On Windows, double-click `run.bat`. It installs missing dependencies, asks for an administrator passphrase on first setup, prepares SQLite, installs the template catalog, and starts the app.
+Install Node.js 20.19 or later with npm. On Windows, double-click `run.bat`. It installs missing dependencies, asks for an administrator passphrase on first setup, prepares SQLite, installs the template catalog and fictional starter participants for an empty workspace, and starts the app.
 
 On macOS or Linux, run these commands from the project directory.
 
@@ -18,7 +18,7 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in with the passphrase you chose. Setup accepts 12 to 256 characters. The terminal displays your input while you type it.
 
-A fresh Git clone starts with an empty workspace and six installed templates. To try the full demo with fictional participants, campaigns, and historical interactions, stop the app and run the following **only against a disposable demo database**.
+A fresh Windows demo includes six built-in templates and four fictional participants. You can find them under Templates and Participants. The participants are added only when the participant list is empty and the starter demo has never been installed. Existing participants and consent records are preserved. On macOS or Linux, run `npm run demo:install` after `npm run db:push` for the same starter data. Use `npm run templates:install` to install only the catalog. To try the full demo with fictional participants, campaigns, and historical interactions, stop the app and run the following **only against a disposable demo database**.
 
 ```sh
 npm run demo:reset
