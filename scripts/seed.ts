@@ -2,11 +2,9 @@
  * PhishGuard · Seed script
  * Creates a rich, realistic demo dataset: participants, templates,
  * campaigns with a month of tracked events, training, compliance records.
- * Run: bun run scripts/seed.ts
+ * Used by demo:install and demo:reset.
  */
-import { PrismaClient } from '@prisma/client'
-
-const db = new PrismaClient()
+import { PrismaClient, type Prisma } from '@prisma/client'
 
 const day = (n: number, hourOffset = 0, minOffset = 0) =>
   new Date(Date.now() - n * 24 * 3600 * 1000 + hourOffset * 3600 * 1000 + minOffset * 60 * 1000)
@@ -28,38 +26,53 @@ function emailShell(headerColor: string, headerTitle: string, inner: string) {
 const btn = (label: string) =>
   `<a href="#" data-simulated="link" style="display:inline-block;background:#c0392b;color:#ffffff;padding:11px 26px;text-decoration:none;border-radius:5px;font-weight:bold;">${label}</a>`
 
-async function main() {
-  console.log('Clearing existing data...')
-  await db.trainingAttempt.deleteMany()
-  await db.auditLog.deleteMany()
-  await db.trackedEvent.deleteMany()
-  await db.enrollment.deleteMany()
-  await db.campaign.deleteMany()
-  await db.trainingCompletion.deleteMany()
-  await db.trainingModule.deleteMany()
-  await db.template.deleteMany()
-  await db.participant.deleteMany()
-  await db.allowedDomain.deleteMany()
-  await db.setting.deleteMany()
+export async function seedDemo(db: Prisma.TransactionClient, merge: boolean) {
+  const marker = 'originalDemoRestoredV1'
+  if (merge && await db.setting.findUnique({ where: { key: marker } })) return
+
+  const installTemplate = async ({data}: {data: Prisma.TemplateCreateInput}) => {
+    if (merge) {
+      const legacyName = data.name.replaceAll(' · ', ' — ')
+      const existing = await db.template.findFirst({ where: { name: { in: [data.name, legacyName] } } })
+      if (existing) return existing
+    }
+    return db.template.create({ data })
+  }
+  const installCampaign = async ({data}: {data: Prisma.CampaignUncheckedCreateInput}) => {
+    if (merge && await db.campaign.findFirst({ where: { name: data.name } })) return null
+    return db.campaign.create({ data })
+  }
+  const addedCampaignIds: string[] = []
+
+  if (!merge) {
+    console.log('Clearing existing data...')
+    await db.trainingAttempt.deleteMany()
+    await db.auditLog.deleteMany()
+    await db.trackedEvent.deleteMany()
+    await db.enrollment.deleteMany()
+    await db.campaign.deleteMany()
+    await db.trainingCompletion.deleteMany()
+    await db.trainingModule.deleteMany()
+    await db.template.deleteMany()
+    await db.participant.deleteMany()
+    await db.allowedDomain.deleteMany()
+    await db.setting.deleteMany()
+  }
 
   // ---------------- Settings ----------------
-  await db.setting.createMany({
-    data: [
+  for (const setting of [
       { key: 'defaultRetentionDays', value: '90' },
       { key: 'autoPurge', value: 'true' },
-    ],
-  })
+    ]) await db.setting.upsert({ where: { key: setting.key }, update: {}, create: setting })
 
   // ---------------- Allowed sender domains ----------------
-  await db.allowedDomain.createMany({
-    data: [
+  for (const domain of [
       { domain: 'acme-corp.test', approvedBy: 'demo-fixture' },
       { domain: 'mail.securelab.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(60) },
       { domain: 'notifications.acme-corp.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(60) },
       { domain: 'hr-benefits.acme-corp.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(60) },
       { domain: 'billing.acme-vendor.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(45) },
-    ],
-  })
+    ]) await db.allowedDomain.upsert({ where: { domain: domain.domain }, update: {}, create: domain })
 
   // ---------------- Participants ----------------
   const people: {
@@ -85,8 +98,10 @@ async function main() {
 
   const participants: Record<string, { id: string }> = {}
   for (const p of people) {
-    const row = await db.participant.create({
-      data: {
+    const row = await db.participant.upsert({
+      where: { email: p.email },
+      update: {},
+      create: {
         name: p.name,
         email: p.email,
         department: p.department,
@@ -100,7 +115,7 @@ async function main() {
   }
 
   // ---------------- Templates ----------------
-  const tPassword = await db.template.create({
+  const tPassword = await installTemplate({
     data: {
       name: 'Password Expiry Alert',
       category: 'Credential Harvesting (simulated)',
@@ -130,7 +145,7 @@ async function main() {
     },
   })
 
-  const tInvoice = await db.template.create({
+  const tInvoice = await installTemplate({
     data: {
       name: 'Overdue Invoice Payment',
       category: 'Invoice Fraud',
@@ -160,7 +175,7 @@ async function main() {
     },
   })
 
-  const tPayroll = await db.template.create({
+  const tPayroll = await installTemplate({
     data: {
       name: 'Payroll Verification Request',
       category: 'Credential Harvesting (simulated)',
@@ -190,7 +205,7 @@ async function main() {
     },
   })
 
-  const tLayoff = await db.template.create({
+  const tLayoff = await installTemplate({
     data: {
       name: 'Confidential Org Changes',
       category: 'Curiosity / Confidential Data',
@@ -220,7 +235,7 @@ async function main() {
     },
   })
 
-  const tPackage = await db.template.create({
+  const tPackage = await installTemplate({
     data: {
       name: 'Failed Delivery Notification',
       category: 'Consumer Scam',
@@ -250,7 +265,7 @@ async function main() {
     },
   })
 
-  const tWire = await db.template.create({
+  const tWire = await installTemplate({
     data: {
       name: 'Urgent Executive Wire Transfer',
       category: 'CEO Fraud / BEC',
@@ -342,7 +357,7 @@ async function main() {
   }
 
   // Campaign 1 · completed, 32 days ago (easy)
-  const c1 = await db.campaign.create({
+  const c1 = await installCampaign({
     data: {
       name: 'Q3 Password Expiry Drill',
       description:
@@ -355,7 +370,8 @@ async function main() {
       createdAt: day(34),
     },
   })
-  await enroll(c1.id, [
+  if (c1) addedCampaignIds.push(c1.id)
+  if (c1) await enroll(c1.id, [
     { who: 'Priya Nair', delivered: 32, open: 32, click: 31, landed: true, submitted: true },
     { who: 'Marcus Chen', delivered: 32, open: 32, click: 31, landed: true, submitted: true, report: 30 },
     { who: 'Elena Petrova', delivered: 32, open: 31, report: 31 },
@@ -366,7 +382,7 @@ async function main() {
   ])
 
   // Campaign 2 · completed, 14 days ago (easy)
-  const c2 = await db.campaign.create({
+  const c2 = await installCampaign({
     data: {
       name: 'Q4 Invoice Fraud Drill',
       description: 'Vendor invoice-fraud simulation for Finance and Operations ahead of month-end close.',
@@ -378,7 +394,8 @@ async function main() {
       createdAt: day(16),
     },
   })
-  await enroll(c2.id, [
+  if (c2) addedCampaignIds.push(c2.id)
+  if (c2) await enroll(c2.id, [
     { who: 'Priya Nair', delivered: 14, open: 14, report: 14 },
     { who: 'Marcus Chen', delivered: 14, open: 14, click: 13, landed: true },
     { who: 'Elena Petrova', delivered: 14, open: 13, report: 13 },
@@ -387,7 +404,7 @@ async function main() {
   ])
 
   // Campaign 3 · RUNNING, launched 5 days ago, partial activity (live demo target)
-  const c3 = await db.campaign.create({
+  const c3 = await installCampaign({
     data: {
       name: 'Q4 Payroll Verification Drill',
       description:
@@ -399,7 +416,8 @@ async function main() {
       createdAt: day(6),
     },
   })
-  await enroll(c3.id, [
+  if (c3) addedCampaignIds.push(c3.id)
+  if (c3) await enroll(c3.id, [
     { who: 'Priya Nair', delivered: 5, open: 5, click: 4, landed: true, submitted: true },
     { who: 'Marcus Chen', delivered: 5, open: 4, click: 4, landed: true },
     { who: 'Grace Wanjiru', delivered: 5, open: 4, report: 3 },
@@ -409,7 +427,7 @@ async function main() {
   ])
 
   // Campaign 4 · DRAFT, includes a NON-CONSENTED participant (authorization gate demo)
-  const c4 = await db.campaign.create({
+  const c4 = await installCampaign({
     data: {
       name: 'Q1 Confidential Data Test',
       description: 'Planned curiosity-driven drill with a hard-difficulty lure. Pending authorization review.',
@@ -419,13 +437,14 @@ async function main() {
       createdAt: day(2),
     },
   })
-  for (const who of ['Grace Wanjiru', 'Tomás Alvarez', 'Arjun Mehta', 'David Kim']) {
+  if (c4) addedCampaignIds.push(c4.id)
+  if (c4) for (const who of ['Grace Wanjiru', 'Tomás Alvarez', 'Arjun Mehta', 'David Kim']) {
     await db.enrollment.create({
       data: { campaignId: c4.id, participantId: participants[who].id },
     })
   }
 
-  const tEsign = await db.template.create({
+  const tEsign = await installTemplate({
     data: {
       name: 'AI Studio · E-Signature Request',
       category: 'Credential Harvesting (simulated)',
@@ -551,12 +570,13 @@ No links, no attachments · just a convincing "urgent, confidential" request fro
     },
   ]
   for (const m of modules) {
+    if (merge && await db.trainingModule.findFirst({ where: { title: m.title } })) continue
     await db.trainingModule.create({ data: { ...m, createdAt: day(50) } })
   }
 
   // Learning scores start empty: only scored assessments can create completions.
   // Normalize fixture chronology so no event precedes delivery.
-  const fixtureEvents = await db.trackedEvent.findMany({ include: { enrollment: true } })
+  const fixtureEvents = await db.trackedEvent.findMany({ where: { enrollment: { campaignId: { in: addedCampaignIds } } }, include: { enrollment: true } })
   for (const e of fixtureEvents) if (e.enrollment.deliveredAt && e.createdAt < e.enrollment.deliveredAt) await db.trackedEvent.update({ where: { id: e.id }, data: { createdAt: e.enrollment.deliveredAt } })
 
   // ---------------- Audit log ----------------
@@ -576,9 +596,11 @@ No links, no attachments · just a convincing "urgent, confidential" request fro
     ['RETENTION_POLICY', 'compliance.officer@acme-corp.test', 'Default retention set to 90 days, auto-purge enabled', 30],
     ['CAMPAIGN_CREATED', 'security.admin@acme-corp.test', 'Draft campaign "Q1 Confidential Data Test" created (pending authorization review)', 2],
   ]
-  for (const [action, actor, detail, d] of audits) {
+  if (!merge) for (const [action, actor, detail, d] of audits) {
     await db.auditLog.create({ data: { action, actor, detail, createdAt: day(d, 10, 0) } })
   }
+
+  if (merge) await db.setting.create({ data: { key: marker, value: 'true' } })
 
   const counts = {
     participants: await db.participant.count(),
@@ -591,9 +613,12 @@ No links, no attachments · just a convincing "urgent, confidential" request fro
   console.log('Seed complete:', JSON.stringify(counts))
 }
 
-main()
-  .catch((e) => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(() => db.$disconnect())
+if (process.argv[1]?.endsWith('seed.ts')) {
+  const db = new PrismaClient()
+  db.$transaction(tx => seedDemo(tx, false), { timeout: 15000 })
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(() => db.$disconnect())
+}
