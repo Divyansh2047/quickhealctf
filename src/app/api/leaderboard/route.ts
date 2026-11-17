@@ -1,3 +1,5 @@
+import { participantAlias } from '@/lib/privacy'
+import { purgeExpired } from '@/lib/retention'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { round1 } from '@/app/api/_lib/shared'
@@ -7,17 +9,16 @@ export const dynamic = 'force-dynamic'
 // Gamification scoring model (per enrollment outcome):
 //   +8   delivered phish safely handled (opened at most, never clicked/submitted)
 //   +15  phish reported
-//   -10  clicked the lure
+//         link opens are analytics only
 //   -20  submitted a credential attempt on the simulated page
 const SCORE_SAFE_DELIVERY = 8
 const SCORE_REPORT = 15
-const SCORE_CLICK = -10
 const SCORE_SUBMITTED = -20
 
 const SCORING_MODEL =
-  '+8 per simulated phish handled safely (delivered, never clicked or submitted), +15 per report, -10 per click, -20 per submitted credential attempt.'
+  '+8 per simulated phish handled safely (reported without submitting), +15 per report, no points per click, -20 per submitted action.'
 const PRIVACY_NOTE =
-  'Individual rows are simulated demo data; in production only aggregated results are shared with team leads.'
+  'Individual rows are simulated demo data; aliases are pseudonyms, not anonymous identities. Shared reports use aggregates.'
 
 interface ParticipantTally {
   participantId: string
@@ -44,13 +45,14 @@ function computeBadges(tally: {
     badges.push('Zero-Click Champion')
   }
   if (tally.score >= 40) badges.push('Guardian')
-  if (tally.score < 0 || tally.submitted >= 2) badges.push('High Risk — Needs Coaching')
+  if (tally.submitted >= 2) badges.push('Practice recommended')
   if (tally.reports === 1) badges.push('Report Rookie')
   return badges
 }
 
 export async function GET() {
   try {
+    await purgeExpired()
     const [participants, enrollments] = await Promise.all([
       db.participant.findMany(),
       db.enrollment.findMany(),
@@ -70,19 +72,18 @@ export async function GET() {
       const submitted = own.filter((e) => e.submittedAt !== null).length
       const reports = own.filter((e) => e.reportedAt !== null).length
       const safelyHandled = own.filter(
-        (e) => e.deliveredAt !== null && e.clickedAt === null && e.submittedAt === null
+        (e) => e.deliveredAt !== null && e.reportedAt !== null && e.submittedAt === null
       ).length
 
       const score = Math.round(
         SCORE_SAFE_DELIVERY * safelyHandled +
           SCORE_REPORT * reports +
-          SCORE_CLICK * clicks +
           SCORE_SUBMITTED * submitted
       )
       const tally = { delivered, clicks, submitted, reports, score }
       return {
         participantId: participant.id,
-        name: participant.name,
+        name: participantAlias(participant.id),
         department: participant.department,
         ...tally,
         badges: computeBadges(tally),
@@ -112,7 +113,7 @@ export async function GET() {
       bucket.score += tally.score
       byDepartment.set(tally.department, bucket)
     }
-    const departments = [...byDepartment.entries()]
+    const departments = [...byDepartment.entries()].filter(([, d]) => d.participants >= 3)
       .map(([department, bucket]) => ({
         department,
         ...bucket,

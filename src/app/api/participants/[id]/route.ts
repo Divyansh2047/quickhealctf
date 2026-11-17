@@ -46,6 +46,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const consented = asBoolean(body.consented)
+    if (consented === true && !participant.consented) return NextResponse.json({ error: 'Participants must grant consent through their private invitation' }, { status: 400 })
     if (consented !== undefined && consented !== participant.consented) {
       data.consented = consented
       data.consentedAt = consented ? new Date() : null
@@ -66,6 +67,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await logAudit('CONSENT_REVOKED', ADMIN_ACTOR, `"${updated.name}" revoked consent`)
     }
 
+    if (data.active !== undefined) await logAudit('PARTICIPANT_STATUS', ADMIN_ACTOR, `Participant status changed to ${data.active ? 'active' : 'inactive'}`)
     const enrollments = await db.enrollment.findMany({ where: { participantId: id } })
     return NextResponse.json({ participant: serializeParticipant(updated, enrollments) })
   } catch (error) {

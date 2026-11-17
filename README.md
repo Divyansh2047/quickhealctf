@@ -1,173 +1,78 @@
-# PhishGuard — Phishing Simulation & Awareness Platform
+# PhishGuard
 
-A governance-first platform for running **authorized** phishing awareness drills: launch controlled campaigns against a consented roster, track the full behavioral funnel (delivered → opened → clicked → landed → submitted → reported), teach in the moment with AI-powered landing pages and micro-trainings, and report on program health with privacy-preserving analytics. **No real credentials are ever collected** — the simulated form discards every typed value server-side; only behavioral signals are recorded.
+PhishGuard is a local security awareness lab. Participants practice recognizing suspicious messages in an internal inbox, then get feedback on what they noticed and what they could do next. Organizers can track participation and learning without sending real email.
 
-> **Authorized use only.** PhishGuard is a defensive security-awareness tool for demonstration and authorized training. It never sends real email — every simulation lives inside the platform's sandboxed Test Inbox.
+## Run it locally
 
----
+Install Node.js 20.19 or later with npm. On Windows, double-click `run.bat`. It installs missing dependencies, asks for an administrator passphrase on first setup, prepares SQLite, installs the template catalog, and starts the app.
 
-## Features
+On macOS or Linux, run these commands from the project directory.
 
-| View | What it does |
-|---|---|
-| **Overview** | Security Awareness Command Center: resilience score, funnel KPIs, live activity feed (socket.io), recent alerts |
-| **Campaigns** | Full campaign lifecycle — draft, launch (consent + domain gates enforced server-side), complete, per-campaign analytics |
-| **Templates** | Built-in library (credential harvest, BEC, invoice fraud, delivery scam…) + **AI Studio** generation with risk scoring and coach feedback |
-| **AI Studio** | Generate templates from scenarios, analyze phish traits, AI report summaries — powered by an integrated LLM service |
-| **Test Inbox** | Sandboxed inbox that renders simulations end-to-end: open tracking, link tracking, simulated credential landing (zero-capture), report button |
-| **Training** | Micro-training modules (phishing basics, BEC, password hygiene, social engineering) with completion tracking |
-| **Leaderboard** | Department-level awareness standings, report-rate champions |
-| **Analytics** | Program trend, technique susceptibility, department heatmap, funnel conversion |
-| **Compliance** | Consent ledger, allowed-domain governance, data-retention rules, immutable audit log, export |
-
----
-
-## Tech stack
-
-- **Next.js 16** (App Router) + **TypeScript 5**
-- **Tailwind CSS 4** + **shadcn/ui** (New York) + **Framer Motion**
-- **Prisma ORM + SQLite** — zero external database needed
-- **Recharts** — analytics
-- **socket.io** — live activity feed via a dedicated mini-service (`mini-services/live-feed`, port 3003; ingest API on 3004)
-- **z-ai-web-dev-sdk** — AI features (works out of the box in the sandbox; locally the app degrades gracefully if unreachable)
-
----
-
-## Run it locally (5 minutes)
-
-### Prerequisites
-
-- **Node.js 20+** with npm, **or** **Bun 1.1+** — pick one
-- No database install, no API keys required to boot the demo
-
-### 1. Unzip & enter
-
-```bash
-cd phishguard            # folder containing package.json
+```sh
+npm ci
+npm run setup
+npm run db:push
+npm run templates:install
+npm run dev
 ```
 
-The zip ships with:
-- `.env` — portable config (`DATABASE_URL="file:../db/custom.db"`), works on any machine
-- `db/custom.db` — **pre-seeded demo dataset** (12 participants, 4 campaigns, templates, events, audit history)
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in with the passphrase you chose. Setup accepts 12 to 256 characters. The terminal displays your input while you type it.
 
-### 2. Install dependencies
+A fresh Git clone starts with an empty workspace and six installed templates. To try the full demo with fictional participants, campaigns, and historical interactions, stop the app and run the following **only against a disposable demo database**.
 
-```bash
-npm install          # or: bun install
+```sh
+npm run demo:reset
+npm run templates:install
+npm run dev
 ```
 
-### 3. (Only if `db/` was not included) create the database
+`demo:reset` replaces the contents of the configured database. Skip it when upgrading an existing workspace. Keep your current `.env` and `db` directory, and rerun the launcher or the database and catalog commands.
 
-```bash
-mkdir -p db
-npx prisma db push   # bun: bunx prisma db push
+## Try the exercises
+
+1. In **Compliance**, approve the exact domains used by the fictional sender and participant addresses.
+2. Create a participant and issue an invitation. Open the invitation in a separate browser profile and accept as that participant.
+3. In **Campaigns**, select a template, assign consenting participants, and launch.
+4. Open the participant inbox. Report the message, open the exercise, or dismiss it. A link open counts as an interaction, but carries no leaderboard penalty. Closing an exercise does not record a submission.
+5. Review the warning signs, take the short quiz, and compare the activity and training results in the organizer workspace.
+
+The catalog covers lottery notices, vacation tickets, coworker impersonation, supplier payment changes, shared documents, and account verification. The demo adds scenarios such as payroll verification, executive payment approval, parcel redelivery, and e-signing. Use invented values anywhere an exercise presents practice fields.
+
+## Studio and reporting
+
+The draft generator works locally with six supported exercise presets. It creates labeled internal exercises with coaching notes. The message analyzer checks pasted text for signals such as mismatched reply domains, unexpected payment requests, suspicious links, and pressure to act. Treat its findings as prompts to verify an issue. It does not open links or verify the sender.
+
+Local coaching and analysis require no AI key. External AI is disabled by default. If you enable it for supported analysis and coaching features, review what text your provider will receive before pasting a message. The template generator remains local.
+
+The organizer can view campaign activity, reports, and paired quiz results. Exported participant labels are pseudonyms. A small department may be omitted from aggregates, and seeded demo activity is fictional.
+
+## How it works
+
+The application uses Next.js and TypeScript for the interface and API, with Prisma and SQLite for local storage. Signed sessions distinguish organizers from participants. Invitations expire and can only be accepted once. Campaigns require participant consent and approved sender and recipient domains. Tracking records interaction types and timestamps. Practice field values stay in the browser and are cleared on submit or exit.
+
+Templates render in a sandboxed preview. Reports use pseudonymous labels and escape spreadsheet formulas. The retention job removes expired campaign enrollments and their events. See the [security review](docs/SECURITY_REVIEW.md) for the threat model and known limitations.
+
+### Configuration
+
+| Setting | Purpose |
+| --- | --- |
+| `APP_ORIGIN` | Exact browser origin. Local default is `http://127.0.0.1:3000`. |
+| `DATABASE_URL` | SQLite location. Default is `file:../db/custom.db`, relative to the Prisma schema. |
+| `SESSION_SECRET` | Signs sessions and invitations. Generated by setup. |
+| `ADMIN_PASSWORD_HASH` | Verifies the admin passphrase. Generated by setup. |
+| `COOKIE_SECURE` | Set to `true` when serving over HTTPS. |
+| `AI_ENABLED` | Enables supported external AI features when the provider is configured. Defaults to `false`. |
+
+For a local origin error, use the exact configured address. On Windows, the launcher repairs the local origin setting. Do not commit `.env` or SQLite files. For a production build, run `npm run build` followed by `npm start`. It binds to loopback by default. This project is designed for one trusted host and one organization.
+
+## Run the checks
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run verify:api
+npm run build
 ```
 
-To force a pristine database at any time:
-
-```bash
-rm db/custom.db && npx prisma db push
-```
-
-### 4. Start the live-feed mini-service (terminal 1)
-
-```bash
-cd mini-services/live-feed
-npm install          # first time only (or: bun install)
-npm run dev          # or: bun run dev  → ports 3003 (socket.io) + 3004 (ingest)
-```
-
-> Skipping this step is fine — everything else works; only the live activity feed on the Overview page shows "connecting".
-
-### 5. Start the platform (terminal 2)
-
-```bash
-cd ..                # back to the project root
-npm run dev          # or: bun run dev  → http://localhost:3000
-```
-
-### 6. Open **http://localhost:3000**
-
-The demo dataset is already loaded — explore every view immediately. The health endpoint confirms the stack: `GET /api/health` → `{ ok: true, checks: { database, liveFeed, ai } }`.
-
-### Local socket note
-
-Behind a reverse-proxy/gateway deployment, the browser reaches the feed via the default `/?XTransformPort=3003`. For a plain local run without a gateway, add one line to `.env`:
-
-```bash
-NEXT_PUBLIC_SOCKET_URL="http://localhost:3003"
-```
-
-then restart `npm run dev`. (The backend→feed ingest URL `LIVE_FEED_URL` already defaults to `http://127.0.0.1:3004/emit`.)
-
-### Production build (optional)
-
-```bash
-npm run build && npm run start
-```
-
----
-
-## Demo walkthrough (2 minutes, judge-ready)
-
-1. **Overview** — Command Center with resilience score, conversion funnel, and the **live activity feed** streaming real-time events.
-2. **Campaigns** — open a running campaign; inspect per-campaign analytics and the consent/domain launch gates.
-3. **Test Inbox** — pick the live campaign email → **open** it → **click the link** → the simulated credential page loads → type anything and **submit**: the teachable-moment page fires ("nothing you typed was stored") → hit **Report phish**. Watch the funnel and leaderboard update, and the event appear in the live feed.
-4. **AI Studio** — generate a new template from a scenario; check the AI risk analysis and coaching tips.
-5. **Analytics / Leaderboard** — program trend, technique susceptibility radar, department standings.
-6. **Compliance** — consent ledger, allowed domains, retention policy, immutable audit trail of every action you just performed.
-
----
-
-## Architecture
-
-```
-├── src/
-│   ├── app/page.tsx                 # App shell: sidebar nav + 9 views
-│   ├── app/api/
-│   │   ├── campaigns/  participants/  templates/  inbox/  training/
-│   │   ├── analytics/  stats/  leaderboard/  compliance/  export/
-│   │   ├── track/                   # open / click / landing / credential / report
-│   │   ├── ai/                      # analyze / coach / report-summary / template
-│   │   └── health/                  # database + liveFeed + AI checks
-│   ├── components/phishguard/       # views, shared components, hooks (socket)
-│   └── lib/                         # db, events (feed ingest), authz, audit, ai, rate-limit
-├── mini-services/live-feed/         # socket.io feed: 3003 (browser) + 3004 (ingest)
-├── prisma/schema.prisma             # 10 models
-└── db/custom.db                     # pre-seeded SQLite demo data
-```
-
-### Safety architecture (defensible by design)
-
-- **Zero-credential capture** — the credential endpoint discards all POST values before any persistence layer; the schema has no field that could hold a secret.
-- **Consent + domain gates** — launches fail closed unless every participant is consented and the sender domain is on the allowed list.
-- **Privacy-preserving analytics** — no IPs, coarse device metadata only, retention windows, anonymized exports.
-- **Immutable audit log** — every governance-relevant action is appended.
-- **In-platform only** — nothing ever leaves the sandbox: no real email delivery.
-
----
-
-## Scripts (project root)
-
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Dev server on port 3000 |
-| `npm run build` / `npm run start` | Production build / serve |
-| `npm run lint` | ESLint |
-| `npm run db:push` | Apply Prisma schema |
-| `npm run db:reset` | Reset the database |
-
-## Troubleshooting
-
-| Symptom | Fix |
-|---|---|
-| `Environment variable not found: DATABASE_URL` | Ensure `.env` exists (copy from `.env.example`) |
-| Empty dashboard | You deleted the DB — `npx prisma db push` then re-run the seed flow or contact the team copy in `db/` |
-| Live feed shows "connecting" | Start `mini-services/live-feed` (step 4); locally also set `NEXT_PUBLIC_SOCKET_URL=http://localhost:3003` |
-| Port 3000 busy | `npm run dev -- -p 3001` |
-| AI Studio errors locally | The AI service needs sandbox connectivity; all other views work offline |
-| Prisma client out of sync | `npx prisma generate && npx prisma db push` |
-
----
-
-**PhishGuard v1.0 — Authorized security awareness, simulated safely.**
+The API test command starts a local server against a temporary SQLite database. Stop your development server first so port 3000 is free. For the browser suite, install Playwright Chromium with `npx playwright install chromium`, then run `npm run verify:browser`. See the [demo runbook](docs/DEMO_RUNBOOK.md) for a walkthrough and the [sample report](docs/SAMPLE_AWARENESS_REPORT.md) for an example deliverable.

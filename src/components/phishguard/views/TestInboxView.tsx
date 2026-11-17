@@ -1,14 +1,10 @@
 "use client";
 
-// PhishGuard — Test Inbox: a fully in-platform, controlled environment where
-// demo participants "receive" simulated phishes and experience the entire
-// multi-stage lifecycle (delivered → opened → clicked → landed → submitted →
-// reported). Clicks open a convincing fake sign-in page; submissions are
-// intercepted and turned into AI-coached teaching moments. No credentials are
-// ever transmitted or stored — inputs are cleared locally and only the fact
-// of a submission is recorded.
+// Controlled landing decisions are recorded without accepting user-entered data.
 
-import { useMemo, useState } from "react";
+import { ScenarioLanding } from "../ScenarioLanding";
+import { scenarioFor } from "@/lib/landing-scenarios";
+import { useMemo, useRef, useState } from "react";
 import {
   ExternalLink,
   FlagTriangleRight,
@@ -62,7 +58,6 @@ import type {
 } from "../api";
 import { useInbox, useParticipants } from "../hooks";
 import {
-  DifficultyBadge,
   EmptyState,
   ErrorState,
   initials,
@@ -75,26 +70,7 @@ import {
 } from "../shared";
 import type { ViewKey } from "../view-keys";
 
-/* ----------------------- fake-page brand theming ----------------------- */
-
-const CATEGORY_BRANDS: Record<string, { bar: string; product: string }> = {
-  it: { bar: "bg-teal-600", product: "IT Service Portal" },
-  finance: { bar: "bg-amber-600", product: "Payments Center" },
-  hr: { bar: "bg-emerald-600", product: "HR Self-Service" },
-  security: { bar: "bg-red-600", product: "Security Operations" },
-  shipping: { bar: "bg-zinc-700", product: "Parcel Tracking" },
-};
-
-function brandFor(category: string): { bar: string; product: string } {
-  return (
-    CATEGORY_BRANDS[category.trim().toLowerCase()] ?? {
-      bar: "bg-zinc-700",
-      product: `${category || "Corporate"} Portal`,
-    }
-  );
-}
-
-/** Local coaching payload — microQuiz is optional because the client-side
+/** Local coaching payload · microQuiz is optional because the client-side
  * fallback (template.landingMessage) has no quiz to offer. */
 interface CoachCardData {
   headline: string;
@@ -117,21 +93,23 @@ export default function TestInboxView({
   const participantId = pickedParticipantId ?? actors[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Optimistic stage overlay — keeps dots accurate across refreshes and with
+  // Optimistic stage overlay · keeps dots accurate across refreshes and with
   // backends that do not yet surface landedAt/submittedAt on inbox rows.
   const [localStage, setLocalStage] = useState<Record<string, Partial<StageFlags>>>({});
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set()); // local-only delete
-  const [partialIds, setPartialIds] = useState<Set<string>>(new Set()); // clicked, never submitted
 
   // Simulated phishing page dialog state.
+  const actionLock = useRef(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const [fakeOpen, setFakeOpen] = useState(false);
   const [fakeStage, setFakeStage] = useState<"login" | "result">("login");
   const [fakeItem, setFakeItem] = useState<InboxItem | null>(null);
   const [resultKind, setResultKind] = useState<"submitted" | "reported" | null>(null);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+
+
 
   // AI coach state for the educational interstitial.
+  const coachRequest = useRef(0);
   const [coach, setCoach] = useState<CoachCardData | null>(null);
   const [coachSource, setCoachSource] = useState<AiSource | null>(null);
   const [coachLoading, setCoachLoading] = useState(false);
@@ -163,7 +141,10 @@ export default function TestInboxView({
     type: TrackEventType
   ): Promise<TrackResponse | null> => {
     try {
-      return await trackEvent(enrollmentId, type);
+      const result = await trackEvent(enrollmentId, type);
+      const e = result.enrollment;
+      if (e) mergeStage(enrollmentId, { opened: !!e.openedAt, clicked: !!e.clickedAt, landed: !!e.landedAt, submitted: !!e.submittedAt, reported: !!e.reportedAt });
+      return result;
     } catch (err) {
       toast.error(apiErrorMessage(err));
       return null;
@@ -171,7 +152,8 @@ export default function TestInboxView({
   };
 
   /** AI coaching moment; degrades to template.landingMessage on failure. */
-  const loadCoach = async (item: InboxItem, action: "submit" | "report") => {
+  const loadCoach = async (item: InboxItem, action: "submit" | "report" | "click") => {
+    const requestId = ++coachRequest.current;
     setCoachLoading(true);
     setCoach(null);
     setCoachSource(null);
@@ -179,8 +161,9 @@ export default function TestInboxView({
       const res = await fetchAiCoach({
         action,
         templateId: item.templateId ?? item.template.id ?? item.campaignId,
-        participantName: data?.participant.name,
+
       });
+      if (requestId !== coachRequest.current) return;
       setCoach({
         headline: res.coach.headline,
         message: res.coach.message,
@@ -188,17 +171,18 @@ export default function TestInboxView({
       });
       setCoachSource(res.source);
     } catch {
+      if (requestId !== coachRequest.current) return;
       // Graceful fallback using data the frontend already has.
       setCoach({
         headline: action === "report" ? "Why reporting works" : "What just happened",
         message:
           item.template.landingMessage ||
           "This was a simulated phishing email built for authorized awareness training. Pausing to verify the sender before acting is exactly the right reflex.",
-        microQuiz: null,
+        microQuiz: {question: "What is the safest next step for an unexpected request?", options: ["Continue because the page looks familiar", "Verify through a known, independent channel", "Forward it to everyone"], answerIndex: 1},
       });
       setCoachSource("fallback");
     } finally {
-      setCoachLoading(false);
+      if (requestId === coachRequest.current) setCoachLoading(false);
     }
   };
 
@@ -206,73 +190,62 @@ export default function TestInboxView({
     setSelectedId(item.enrollmentId);
     const stage = stageFor(item);
     if (!stage.opened) {
-      mergeStage(item.enrollmentId, { opened: true });
+
       void doTrack(item.enrollmentId, "OPEN").then(() => void refresh());
     }
   };
 
   /** Intercept anchor clicks inside the simulated email body. */
   const handleBodyClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    const anchor = (e.target as HTMLElement).closest("a");
-    if (!anchor || !selected) return;
     e.preventDefault();
-    e.stopPropagation();
-    clickLink(selected);
+    if (selected) clickLink(selected);
   };
 
-  /** The phishing click — stage 1 of the multi-stage flow. */
-  const clickLink = (item: InboxItem) => {
-    const stage = stageFor(item);
-    if (!stage.clicked) {
-      mergeStage(item.enrollmentId, { clicked: true });
-      void doTrack(item.enrollmentId, "CLICK").then(() => void refresh());
-    }
+  /** The phishing click · stage 1 of the multi-stage flow. */
+  const clickLink = async (item: InboxItem) => {
+    if (actionLock.current) return;
+    actionLock.current = true; setActionBusy(true);
+    const recorded = await doTrack(item.enrollmentId, "LANDED");
+    actionLock.current = false; setActionBusy(false);
+    if (!recorded) return;
     setFakeItem(item);
-    if (stage.reported) {
-      // Reported before clicking: show the green report-success interstitial
-      // with the reporting coach instead of the fake sign-in page.
-      setFakeStage("result");
-      setResultKind("reported");
-      setFakeOpen(true);
-      mergeStage(item.enrollmentId, { landed: true });
-      void doTrack(item.enrollmentId, "LANDED").then(() => void refresh());
-      void loadCoach(item, "report");
-    } else {
-      setFakeStage("login");
-      setResultKind(null);
-      setFakeOpen(true);
-      if (!stage.landed) {
-        mergeStage(item.enrollmentId, { landed: true });
-        void doTrack(item.enrollmentId, "LANDED").then(() => void refresh());
-      }
-    }
+    const reported = stageFor(item).reported;
+    setFakeStage(reported ? "result" : "login");
+    setResultKind(reported ? "reported" : null);
+    setFakeOpen(true);
+    if (reported) void loadCoach(item, "report");
+    void refresh();
   };
 
-  /** Stage 4: simulated credential submission — values are NEVER sent. */
-  const submitFake = () => {
-    if (!fakeItem) return;
-    setUsername(""); // clear locally — privacy guarantee
-    setPassword("");
+  /** Stage 4: confirm a fictional request; only the decision is recorded. */
+  const submitFake = async () => {
+    if (!fakeItem || actionLock.current) return;
+    actionLock.current = true; setActionBusy(true);
+    const recorded = await doTrack(fakeItem.enrollmentId, "SUBMITTED");
+    actionLock.current = false; setActionBusy(false);
+    if (!recorded) return;
+
+
     setFakeStage("result");
     setResultKind("submitted");
-    mergeStage(fakeItem.enrollmentId, { submitted: true });
-    void doTrack(fakeItem.enrollmentId, "SUBMITTED").then(() => void refresh());
+
+    void refresh();
     void loadCoach(fakeItem, "submit");
   };
 
-  /** Close the simulated page; an abandoned login counts as a partial phish. */
+  /** Closing is navigation only: no outcome, submission or report is recorded. */
   const closeFake = () => {
-    if (fakeItem && fakeStage === "login") {
-      setPartialIds((prev) => new Set(prev).add(fakeItem.enrollmentId));
-    }
+    if (actionLock.current) return;
+    coachRequest.current++;
+    setCoachLoading(false);
     setFakeOpen(false);
     setFakeItem(null);
     setFakeStage("login");
     setResultKind(null);
     setCoach(null);
     setCoachSource(null);
-    setUsername("");
-    setPassword("");
+
+
     void refresh();
   };
 
@@ -280,12 +253,13 @@ export default function TestInboxView({
     if (!selected) return;
     const res = await doTrack(selected.enrollmentId, "REPORT");
     if (!res) return;
-    mergeStage(selected.enrollmentId, { reported: true });
+
     if (res.already) {
-      toast.info("You already reported this phish — great instincts!");
+      toast.info("You already reported this phish · great instincts!");
     } else {
-      toast.success("Phish reported — nice catch!");
+      toast.success("Phish reported · nice catch!");
     }
+    setFakeItem(selected); setFakeStage("result"); setResultKind("reported"); setFakeOpen(true); void loadCoach(selected, "report");
     void refresh();
   };
 
@@ -303,18 +277,18 @@ export default function TestInboxView({
       stage.landed &&
       !stage.submitted &&
       !stage.reported &&
-      (partialIds.has(item.enrollmentId) || item.landedAt != null)
+      item.landedAt != null
     );
   };
 
-  const brand = fakeItem ? brandFor(fakeItem.template.category) : null;
+  const brand = fakeItem ? scenarioFor(fakeItem.template) : null;
 
   return (
     <div className="space-y-6">
       <SectionTitle
-        title="Test inbox"
+        title="Practice inbox"
         icon={InboxIcon}
-        description="Experience a simulated phish exactly as an employee would — every click, landing and submission is safely intercepted and turned into coaching."
+        description="Review your messages, inspect requests and decide what to trust."
       />
 
       {/* Controlled environment banner */}
@@ -329,7 +303,7 @@ export default function TestInboxView({
           </p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             This inbox lives entirely inside PhishGuard. Nothing is sent to real mail
-            servers and the simulated page never transmits or stores what you type.
+            servers and the simulated page never transmits or stores dummy data.
           </p>
         </div>
       </div>
@@ -367,7 +341,7 @@ export default function TestInboxView({
           hint="Record consent for at least one participant under Compliance → Consent to use the test inbox."
         />
       ) : loading && !data ? (
-        <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
           <Skeleton className="h-[520px] rounded-xl" />
           <Skeleton className="hidden h-[520px] rounded-xl md:block" />
         </div>
@@ -378,11 +352,11 @@ export default function TestInboxView({
           hint="This participant has not been enrolled in a delivered campaign yet. Launch a campaign with them enrolled, then come back."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
           {/* ------------------------- Email list ------------------------- */}
           <Card className="rounded-xl p-2">
             <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-              Simulated inbox — {inbox.length} message{inbox.length === 1 ? "" : "s"}
+              Simulated inbox · {inbox.length} message{inbox.length === 1 ? "" : "s"}
             </p>
             <ul aria-label="Simulated inbox messages" className="max-h-[520px] overflow-y-auto pr-1">
               {inbox.map((item) => {
@@ -429,8 +403,8 @@ export default function TestInboxView({
                           {partial ? (
                             <span
                               className="inline-block size-2 rounded-full bg-amber-400"
-                              title="Clicked but did not enter credentials — partial phish"
-                              aria-label="partial phish — clicked but did not submit credentials"
+                              title="Link opened, no action confirmed"
+                              aria-label="Link opened, no action confirmed"
                             />
                           ) : null}
                           <StageDots stage={stage} />
@@ -447,14 +421,14 @@ export default function TestInboxView({
           </Card>
 
           {/* ------------------------ Reading pane ------------------------ */}
-          <Card className="rounded-xl p-4 sm:p-6">
+          <Card className="min-w-0 rounded-xl p-4 sm:p-6">
             {selected ? (
               <div className="space-y-4">
                 {/* Reported lock strip */}
                 {stageFor(selected).reported ? (
                   <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300">
                     <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-                    Reported as phishing — locked in for the exercise. Nice instinct.
+                    Reported as phishing · locked in for the exercise. Nice instinct.
                   </div>
                 ) : null}
 
@@ -469,7 +443,7 @@ export default function TestInboxView({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm">
                       <span className="font-semibold">{selected.template.senderName}</span>{" "}
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="break-all font-mono text-xs text-muted-foreground">
                         &lt;{selected.template.senderEmail}&gt;
                       </span>
                     </p>
@@ -484,7 +458,7 @@ export default function TestInboxView({
                       <Badge variant="secondary" className="text-[10px]">
                         {selected.template.category}
                       </Badge>
-                      <DifficultyBadge difficulty={selected.template.difficulty} />
+
                       <Badge variant="outline" className="text-[10px]">
                         {selected.campaignName}
                       </Badge>
@@ -492,7 +466,7 @@ export default function TestInboxView({
                   </div>
                 </div>
 
-                {/* Body — clicks intercepted */}
+                {/* Body · clicks intercepted */}
                 <SimulatedEmailBody
                   bodyHtml={selected.template.bodyHtml}
                   onLinkClick={handleBodyClickCapture}
@@ -506,7 +480,7 @@ export default function TestInboxView({
                     <StageDots stage={stageFor(selected)} />
                     {isPartial(selected) ? (
                       <Badge className="border border-amber-500/40 bg-amber-500/15 text-amber-400">
-                        partial phish — clicked, no credentials entered
+                        Link opened, no action confirmed
                       </Badge>
                     ) : null}
                   </div>
@@ -519,7 +493,7 @@ export default function TestInboxView({
                       <FlagTriangleRight className="size-4" aria-hidden="true" />
                       {stageFor(selected).reported ? "Reported" : "Report Phish"}
                     </Button>
-                    <Button variant="outline" onClick={() => clickLink(selected)}>
+                    <Button variant="outline" disabled={actionBusy} onClick={() => clickLink(selected)}>
                       <ExternalLink className="size-4" aria-hidden="true" />
                       Open link
                     </Button>
@@ -533,7 +507,7 @@ export default function TestInboxView({
                     </Button>
                   </div>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Links inside the simulated email are intercepted — opening one is a safe,
+                    Links inside the simulated email are intercepted · opening one is a safe,
                     trackable teaching moment.
                   </p>
                 </div>
@@ -542,7 +516,7 @@ export default function TestInboxView({
               <EmptyState
                 icon={MailOpen}
                 title="Select a message"
-                hint="Pick an email on the left to read it. Links inside are intercepted — clicking one is a safe, trackable teaching moment."
+                hint="Pick an email on the left to read it. Links inside are intercepted · clicking one is a safe, trackable teaching moment."
                 className="border-0"
               />
             )}
@@ -553,87 +527,27 @@ export default function TestInboxView({
       {/* ------------------- Simulated phishing page dialog ------------------- */}
       <Dialog open={fakeOpen} onOpenChange={(o) => { if (!o) closeFake(); }}>
         <DialogContent
-          className="flex h-[min(92vh,760px)] max-w-[min(96vw,880px)] flex-col gap-0 overflow-hidden rounded-xl p-0"
+          onInteractOutside={event => event.preventDefault()}
+          className="flex h-[94dvh] max-h-[94dvh] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-xl p-0"
           aria-describedby="fake-page-desc"
         >
           <DialogHeader className="sr-only">
-            <DialogTitle>Simulated phishing page</DialogTitle>
+            <DialogTitle>{fakeStage === "login" ? brand?.brand : "Assessment feedback"}</DialogTitle>
             <DialogDescription id="fake-page-desc">
-              Part of the authorized exercise — nothing you type is transmitted or stored.
+              Review the request and choose whether to continue or report it.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Amber safety banner */}
-          <div
-            role="note"
-            className="flex items-center gap-2 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs font-medium text-amber-300"
-          >
-            <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-            SIMULATED PHISHING PAGE — This is part of the authorized exercise. Nothing you type is
-            transmitted or stored.
-          </div>
-
           {fakeStage === "login" ? (
-            /* ------------------------ Fake sign-in page ------------------------ */
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className={cn("flex items-center gap-3 px-6 py-4", brand?.bar ?? "bg-zinc-700")}>
-                <span
-                  aria-hidden="true"
-                  className="flex size-9 items-center justify-center rounded-lg bg-white/15 text-sm font-bold text-white"
-                >
-                  {initials(brand?.product ?? "S")}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-white">{brand?.product}</p>
-                  <p className="text-xs text-white/70">Secure sign-in</p>
-                </div>
-                <span className="ml-auto rounded-md bg-black/20 px-2 py-1 text-[10px] font-medium tracking-wide text-white/80">
-                  {fakeItem?.template.category ?? "portal"}
-                </span>
-              </div>
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-muted/30 p-4 sm:p-6">
-                <form
-                  className="w-full max-w-sm space-y-4 rounded-xl border bg-card p-6"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    submitFake();
-                  }}
-                >
-                  <div>
-                    <p className="text-lg font-semibold">Sign in</p>
-                    <p className="text-xs text-muted-foreground">
-                      to continue to {brand?.product}
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fake-user">Username</Label>
-                    <Input
-                      id="fake-user"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fake-pass">Password</Label>
-                    <Input
-                      id="fake-pass"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Sign in
-                  </Button>
-                  <p className="text-center font-mono text-[10px] text-muted-foreground">
-                    sec-sim-01
-                  </p>
-                </form>
-              </div>
-            </div>
+            fakeItem && <ScenarioLanding key={fakeItem.enrollmentId} item={fakeItem} busy={actionBusy} onSubmit={submitFake} onExit={closeFake} onReport={async () => {
+              if (actionLock.current) return;
+              actionLock.current=true; setActionBusy(true);
+              const result=await doTrack(fakeItem.enrollmentId,"REPORT");
+              actionLock.current=false; setActionBusy(false);
+              if (!result) return;
+              setFakeStage("result"); setResultKind("reported");
+              void loadCoach(fakeItem,"report"); void refresh();
+            }}/>
           ) : (
             /* --------------------- Educational interstitial --------------------- */
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
@@ -649,23 +563,21 @@ export default function TestInboxView({
                     <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-5 text-center">
                       <KeyRound className="mx-auto size-10 text-red-400" aria-hidden="true" />
                       <p className="mt-2 text-lg font-semibold text-red-300">
-                        You just submitted credentials to a fake page
+                        This was a phishing assessment
                       </p>
                       <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-red-200/70">
-                        Nothing was transmitted or stored — PhishGuard intercepted the simulated
-                        submission. In a real attack this is the moment an attacker gets your
-                        account.
+                        You opened the link and confirmed the request. Only those actions were recorded; entered values were cleared locally and never sent. In a real attack, a similar request could lead to credential theft or an unauthorized action.
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center">
                       <ShieldCheck className="mx-auto size-10 text-emerald-400" aria-hidden="true" />
                       <p className="mt-2 text-lg font-semibold text-emerald-300">
-                        Good instincts — you reported this phish
+                        Good instincts · you reported this phish
                       </p>
                       <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-emerald-200/70">
                         Reporting is the single strongest defense for the whole organization. This
-                        simulated page is safe — it only confirms what you already spotted.
+                        simulated page is safe · it only confirms what you already spotted.
                       </p>
                     </div>
                   )}
@@ -690,7 +602,7 @@ export default function TestInboxView({
                     <div className="space-y-2 rounded-xl border border-violet-500/30 bg-violet-500/5 p-4">
                       <div className="flex items-center gap-2 text-xs font-medium text-violet-300">
                         <Sparkles className="size-3.5" aria-hidden="true" />
-                        AI Coach is preparing your teaching moment…
+                        Preparing your coaching and quick check…
                       </div>
                       <Skeleton className="h-4 w-2/3" />
                       <Skeleton className="h-3 w-full" />
@@ -701,11 +613,11 @@ export default function TestInboxView({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-300">
                           <Sparkles className="size-3.5" aria-hidden="true" />
-                          AI Coach
+                          Awareness coach
                         </span>
                         {coachSource === "fallback" ? (
                           <Badge variant="outline" className="border-zinc-500/40 bg-zinc-500/10 text-[10px] text-zinc-400">
-                            heuristic mode
+                            local coaching
                           </Badge>
                         ) : null}
                       </div>
@@ -713,7 +625,7 @@ export default function TestInboxView({
                       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                         {coach.message}
                       </p>
-                      {coach.microQuiz ? <CoachMicroQuiz quiz={coach.microQuiz} /> : null}
+                      {coach.microQuiz ? <CoachMicroQuiz key={`${fakeItem?.enrollmentId}-${resultKind}`} quiz={coach.microQuiz} /> : null}
                     </div>
                   ) : null}
 
@@ -786,9 +698,9 @@ function CoachMicroQuiz({
           onClick={() => {
             setGraded(true);
             if (Number(picked) === quiz.answerIndex) {
-              toast.success("Correct — good instinct.");
+              toast.success("Correct · good instinct.");
             } else {
-              toast.error("Not quite — the correct answer is highlighted below.");
+              toast.error("Not quite · the correct answer is highlighted below.");
             }
           }}
         >
@@ -803,8 +715,8 @@ function CoachMicroQuiz({
           role="status"
         >
           {correct
-            ? "Correct — you spotted it."
-            : `Not quite — the correct answer is: "${quiz.options[quiz.answerIndex]}"`}
+            ? "Correct · you spotted it."
+            : `Not quite · the correct answer is: "${quiz.options[quiz.answerIndex]}"`}
         </p>
       )}
     </div>

@@ -1,4 +1,5 @@
-// PhishGuard API — shared serialization & aggregation helpers.
+import { safeTemplateHtml } from '@/lib/template-safety'
+// PhishGuard API · shared serialization & aggregation helpers.
 // Colocated under src/app/api/_lib (underscore folder = private, never routed).
 
 import { db } from '@/lib/db'
@@ -32,7 +33,7 @@ export function computeResilienceScore(
   reportRate: number,
   trainingCompletionRate: number
 ): number {
-  return Math.round(0.4 * (100 - clickRate) + 0.4 * reportRate + 0.2 * trainingCompletionRate)
+  return Math.max(0, Math.min(100, Math.round(0.4 * (100 - clickRate) + 0.4 * reportRate + 0.2 * trainingCompletionRate)))
 }
 
 /** Local-calendar YYYY-MM-DD key. */
@@ -212,7 +213,7 @@ export function serializeTemplate(template: Template, usageCount: number) {
     subject: template.subject,
     senderName: template.senderName,
     senderEmail: template.senderEmail,
-    bodyHtml: template.bodyHtml,
+    bodyHtml: safeTemplateHtml(template.bodyHtml),
     landingMessage: template.landingMessage,
     redFlags: parseJsonArray(template.redFlags),
     isBuiltIn: template.isBuiltIn,
@@ -311,7 +312,7 @@ export function buildDepartments(
     item.reportRate = pct(item.reports, item.delivered)
     item.vulnerabilityIndex = Math.round(0.6 * item.clickRate + 0.4 * (100 - item.reportRate))
   }
-  return list.sort((a, b) => b.delivered - a.delivered || a.department.localeCompare(b.department))
+  return list.filter(d => d.participants >= 3).sort((a, b) => b.delivered - a.delivered || a.department.localeCompare(b.department))
 }
 
 /* ----------------------------- retention ------------------------------- */
@@ -388,7 +389,7 @@ export function templateFieldsToData(fields: TemplateFields) {
     subject: fields.subject.trim(),
     senderName: fields.senderName.trim(),
     senderEmail: fields.senderEmail.trim(),
-    bodyHtml: fields.bodyHtml,
+    bodyHtml: safeTemplateHtml(fields.bodyHtml),
     landingMessage: fields.landingMessage,
     redFlags: JSON.stringify(fields.redFlags),
   }

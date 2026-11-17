@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — shared presentational building blocks used across views.
+// PhishGuard · shared presentational building blocks used across views.
 
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -31,31 +31,31 @@ import type { CampaignStatus, Difficulty, EventType, StatsEvent } from "./api";
 
 /** "3 min ago" style relative time, or em-dash when missing. */
 export function relativeTime(date?: string | null): string {
-  if (!date) return "—";
+  if (!date) return "–";
   try {
     const d = new Date(date);
-    if (Number.isNaN(d.getTime())) return "—";
+    if (Number.isNaN(d.getTime())) return "–";
     return formatDistanceToNow(d, { addSuffix: true });
   } catch {
-    return "—";
+    return "–";
   }
 }
 
 /** Short absolute timestamp (e.g. "Jun 4, 14:22"). */
 export function shortDateTime(date?: string | null): string {
-  if (!date) return "—";
+  if (!date) return "–";
   try {
     const d = new Date(date);
-    if (Number.isNaN(d.getTime())) return "—";
+    if (Number.isNaN(d.getTime())) return "–";
     return format(d, "MMM d, HH:mm");
   } catch {
-    return "—";
+    return "–";
   }
 }
 
 /** Format a 0-100 rate as a rounded percentage string. */
 export function pct(value?: number | null): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  if (value === null || value === undefined || Number.isNaN(value)) return "–";
   return `${Math.round(value)}%`;
 }
 
@@ -76,7 +76,7 @@ export function initials(name: string): string {
     .join("");
 }
 
-/** Icon, color and verb metadata for every simulated event type — shared by
+/** Icon, color and verb metadata for every simulated event type · shared by
  * the Overview live feed, stage dots and any event list. */
 export const EVENT_META: Record<
   EventType,
@@ -110,7 +110,7 @@ export const EVENT_META: Record<
     icon: KeyRound,
     className: "text-red-300",
     bg: "bg-red-500/25 border-red-500/40",
-    verb: "submitted credentials on the simulated page in",
+    verb: "confirmed the simulated request in",
   },
   REPORT: {
     icon: ShieldCheck,
@@ -159,7 +159,7 @@ export function StageDots({ stage }: { stage: StageFlags }) {
       className="flex items-center gap-0.5"
       role="img"
       aria-label={
-        `lifecycle — delivered, ${["opened", "clicked", "landed", "submitted", "reported"]
+        `lifecycle · delivered, ${["opened", "clicked", "landed", "submitted", "reported"]
           .filter((k) => reached[k as keyof StageFlags])
           .join(", ") || "no activity yet"
       }`
@@ -194,7 +194,7 @@ export function StageDots({ stage }: { stage: StageFlags }) {
  * "mail client" surface used everywhere previews appear.
  *
  * - Pass `onLinkClick` to intercept anchor clicks (Test Inbox lifecycle).
- * - Pass `inert` (or nothing) for read-only previews — links are disabled.
+ * - Pass `inert` (or nothing) for read-only previews · links are disabled.
  */
 export function SimulatedEmailBody({
   bodyHtml,
@@ -209,18 +209,12 @@ export function SimulatedEmailBody({
   label?: string;
   className?: string;
 }) {
-  return (
-    <div
-      onClickCapture={onLinkClick}
-      aria-label={label ?? "Simulated email body"}
-      className={cn(
-        "rounded-md border bg-white p-4 text-slate-900 [&_a]:cursor-pointer [&_a]:underline",
-        inert && "[&_a]:pointer-events-none",
-        className
-      )}
-      dangerouslySetInnerHTML={{ __html: bodyHtml }}
-    />
-  );
+  const document = `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.6 Arial,sans-serif;color:#172b24;padding:12px;overflow-wrap:anywhere}a{color:#047857;pointer-events:none}table{max-width:100%}</style></head><body>${bodyHtml}</body></html>`;
+  return <div className={cn("space-y-2", className)}>
+    <iframe title={label ?? "Simulated email body"} sandbox="" referrerPolicy="no-referrer" srcDoc={document} className="h-72 w-full rounded-lg border bg-white" />
+    {onLinkClick && !inert ? <button type="button" onClick={onLinkClick as unknown as React.MouseEventHandler<HTMLButtonElement>} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white">Open message link</button> : null}
+  </div>;
+
 }
 
 /* --------------------------- severity helpers --------------------------- */
@@ -499,7 +493,7 @@ export function EventStatusCell({
     return (
       <span className="flex items-center gap-1.5 text-muted-foreground">
         <CircleIcon />
-        <span className="text-[11px]">—</span>
+        <span className="text-[11px]">–</span>
       </span>
     );
   }

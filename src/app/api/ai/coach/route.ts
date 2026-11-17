@@ -1,3 +1,4 @@
+import { getSession } from '@/lib/session'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
@@ -20,7 +21,7 @@ const bodySchema = z.object({
   participantName: z.string().max(120).optional(),
 })
 
-// LLM output shape — parsed defensively, anything off goes to the fallback.
+// LLM output shape · parsed defensively, anything off goes to the fallback.
 const coachSchema = z.object({
   headline: z.string().min(1),
   message: z.string().min(1),
@@ -66,10 +67,10 @@ Respond with valid JSON only, no markdown fences. JSON shape:
 { "headline": "short punchy headline (max ~8 words)", "message": "2-3 encouraging sentences explaining the psychological hook and the #1 red flag to remember", "microQuiz": { "question": "one short question", "options": ["option a", "option b", "option c", "option d"], "answerIndex": 0-3 } }`
 
 const FALLBACK_HEADLINES: Record<string, string> = {
-  open: "You opened the simulated phish — let's talk",
-  click: "Good catch — here's what gave it away",
-  submit: "Close one — let's review what happened",
-  report: 'Excellent instincts — that report was spot on',
+  open: "You opened the simulated phish · let's talk",
+  click: "You paused · here's what to check",
+  submit: "Close one · let's review what happened",
+  report: 'Excellent instincts · that report was spot on',
 }
 
 function buildFallbackCoach(
@@ -80,12 +81,12 @@ function buildFallbackCoach(
   const firstFlag = redFlags[0] ?? 'The message created a false sense of urgency'
   return {
     coach: {
-      headline: FALLBACK_HEADLINES[action] ?? 'Good catch — here is what to remember',
+      headline: FALLBACK_HEADLINES[action] ?? 'Good catch · here is what to remember',
       message:
         template.landingMessage ||
         'This was a simulated phishing email. Take a moment to review the red flags below before acting on similar messages.',
       microQuiz: {
-        question: 'Which signal most strongly suggested this was a simulation?',
+        question: 'Which signal most strongly suggested a suspicious request?',
         options: [
           firstFlag,
           'The email was too long',
@@ -113,7 +114,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: zodFirstIssueMessage(parsed.error) }, { status: 400 })
     }
     const { action, templateId } = parsed.data
-    const participantName = parsed.data.participantName?.trim() || ''
+    const session = await getSession()
+    if (session?.role === 'participant') {
+      const allowed = await db.enrollment.findFirst({ where: { participantId: session.sub, participant: { active: true, consented: true }, campaign: { templateId, status: 'running' }, deliveredAt: { not: null } } })
+      if (!allowed) return NextResponse.json({ error: 'Not authorized for this exercise' }, { status: 403 })
+    }
 
     const template = await db.template.findUnique({ where: { id: templateId } })
     if (!template) {
@@ -131,7 +136,7 @@ export async function POST(request: Request) {
       action === 'click'
         ? 'clicked the link in a simulated phishing email'
         : action === 'submit'
-          ? 'entered credentials on the simulated phishing page (no data was collected)'
+          ? 'confirmed a request on the simulated landing page (practice inputs were cleared locally; no entered values were transmitted)'
           : action === 'report'
             ? 'correctly reported a simulated phishing email'
             : 'opened a simulated phishing email'
@@ -139,7 +144,7 @@ export async function POST(request: Request) {
     try {
       const userPrompt = [
         `The participant ${actionText}.`,
-        participantName ? `Participant first name: ${participantName}.` : null,
+
         '',
         'Simulated email details:',
         `- Template: ${template.name} (category: ${template.category}, difficulty: ${template.difficulty})`,

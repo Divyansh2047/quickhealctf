@@ -292,6 +292,8 @@ export interface TrainingCompletion {
 }
 
 export interface TrainingResponse {
+  attempts: { participantId: string; moduleId: string; phase: string; score: number; total: number; createdAt: string }[];
+  recommendations: { participantId: string; moduleTitle: string; reason: string }[];
   modules: TrainingModule[];
   completions: TrainingCompletion[];
 }

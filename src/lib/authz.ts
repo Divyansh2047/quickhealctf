@@ -5,6 +5,7 @@ export interface AuthzParticipant {
   name: string
   consented: boolean
   active: boolean
+  email?: string
 }
 
 /**
@@ -20,7 +21,9 @@ export async function checkCampaignAuthorization(opts: {
 }): Promise<string[]> {
   const violations: string[] = []
 
+  const approvedDomains = new Set((await db.allowedDomain.findMany()).map(d => d.domain))
   for (const participant of opts.participants) {
+    if (participant.email && !approvedDomains.has(participant.email.split('@').pop()!.toLowerCase())) violations.push(`Participant domain is not approved for ${participant.name}`)
     if (!participant.consented) {
       violations.push(
         `Participant "${participant.name}" has not granted consent for simulation participation`

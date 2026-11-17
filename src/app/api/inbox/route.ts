@@ -1,3 +1,6 @@
+import { safeTemplateHtml } from '@/lib/template-safety'
+import { canActFor } from '@/lib/participant-access'
+import { purgeExpired } from '@/lib/retention'
 import { NextResponse, type NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { parseJsonArray } from '@/lib/events'
@@ -10,6 +13,8 @@ export async function GET(request: NextRequest) {
     if (!participantId) {
       return NextResponse.json({ error: 'participantId is required' }, { status: 400 })
     }
+    if (!await canActFor(participantId)) return NextResponse.json({ error: 'Participation not authorized' }, { status: 403 })
+    await purgeExpired()
     const participant = await db.participant.findUnique({ where: { id: participantId } })
     if (!participant) {
       return NextResponse.json({ error: 'Participant not found' }, { status: 404 })
@@ -19,7 +24,7 @@ export async function GET(request: NextRequest) {
       where: {
         participantId,
         deliveredAt: { not: null },
-        campaign: { status: { not: 'cancelled' } },
+        campaign: { status: 'running' },
       },
       include: { campaign: { include: { template: true } } },
       orderBy: { deliveredAt: 'desc' },
@@ -42,7 +47,7 @@ export async function GET(request: NextRequest) {
         subject: enrollment.campaign.template.subject,
         senderName: enrollment.campaign.template.senderName,
         senderEmail: enrollment.campaign.template.senderEmail,
-        bodyHtml: enrollment.campaign.template.bodyHtml,
+        bodyHtml: safeTemplateHtml(enrollment.campaign.template.bodyHtml),
         landingMessage: enrollment.campaign.template.landingMessage,
         category: enrollment.campaign.template.category,
         difficulty: enrollment.campaign.template.difficulty,

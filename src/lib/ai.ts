@@ -14,6 +14,7 @@ let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
  * retry (used by /api/health to recover from transient backend outages).
  */
 export async function getZai(): Promise<Awaited<ReturnType<typeof ZAI.create>>> {
+  if (process.env.AI_ENABLED !== 'true') throw new Error('External AI disabled; using local coaching')
   if (zaiInstance) return zaiInstance
   const zai = await ZAI.create()
   zaiInstance = zai

@@ -40,7 +40,7 @@ interface Analysis {
   disclaimer: string
 }
 
-const DISCLAIMER = 'AI heuristic analysis for training purposes only — not a verdict.'
+const DISCLAIMER = 'This screening result is for training and requires independent verification.'
 
 const SYSTEM_PROMPT = `You are a senior email security analyst working for a security-awareness training platform. You assess email content for phishing indicators: urgency pressure, authority claims, mismatched or suspicious links, requests for credentials or one-time codes, payment diversion, unusual attachments, and impersonation cues.
 
@@ -158,6 +158,24 @@ function heuristicAnalysis(content: string): Analysis {
     score += 5
   }
 
+  const indicators = [
+    { pattern: /(?:lottery|jackpot|prize|vacation|raffle|giveaway).{0,120}(?:won|winner|claim|fee)|(?:won|claim|winner).{0,120}(?:lottery|jackpot|prize|vacation|raffle|giveaway)/, title: 'Unexpected prize or travel offer', explanation: 'Check whether you entered and verify through the organizer’s official channel.', points: 25 },
+    { pattern: /new (?:bank|account|payment) details|changed bank|gift cards?|advance fee|processing fee/, title: 'Unusual payment request', explanation: 'Verify payment changes or fees independently before authorizing anything.', points: 25 },
+    { pattern: /keep this (?:between us|confidential)|do not (?:call|tell)|(?:message|contact) me on (?:whatsapp|telegram)/, title: 'Secrecy or channel change', explanation: 'Confirm the request with the purported sender through an established channel.', points: 20 },
+  ]
+  for (const indicator of indicators) {
+    if (!has(indicator.pattern)) continue
+    flags.push({ title: indicator.title, severity: 'medium', explanation: indicator.explanation })
+    score += indicator.points
+  }
+  const headers = [...content.matchAll(/^(?:from|reply-to):[^\r\n]*?@([a-z0-9.-]+\.[a-z]{2,})/gim)]
+  const sender = headers.find(header => /^from:/i.test(header[0]))?.[1].toLowerCase()
+  const reply = headers.find(header => /^reply-to:/i.test(header[0]))?.[1].toLowerCase()
+  if (sender && reply && sender !== reply) {
+    flags.push({ title: 'Reply address domain differs', severity: 'medium', explanation: 'Compare the actual sender and reply addresses before responding.' })
+    score += 20
+  }
+
   const riskScore = clamp(score)
   const verdict = deriveVerdict(riskScore)
   const summary =
@@ -212,6 +230,9 @@ export async function POST(request: Request) {
     const { content } = parsed.data
 
     try {
+      if (process.env.AI_ENABLED !== 'true') {
+        return NextResponse.json({ analysis: heuristicAnalysis(content), source: 'fallback' })
+      }
       const result = await withTimeout(
         aiJson<unknown>(
           SYSTEM_PROMPT,

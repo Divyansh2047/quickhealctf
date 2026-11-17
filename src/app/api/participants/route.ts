@@ -1,3 +1,4 @@
+import { getSession } from '@/lib/session'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ADMIN_ACTOR, logAudit } from '@/lib/audit'
@@ -7,9 +8,11 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const session = await getSession()
+    const own = session?.role === 'participant' ? session.sub : undefined
     const [participants, enrollments] = await Promise.all([
-      db.participant.findMany(),
-      db.enrollment.findMany(),
+      db.participant.findMany({ where: own ? { id: own } : undefined }),
+      db.enrollment.findMany({ where: own ? { participantId: own } : undefined }),
     ])
     const byParticipant = new Map<string, typeof enrollments>()
     for (const enrollment of enrollments) {
@@ -56,7 +59,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const consented = asBoolean(body.consented) ?? false
+    const consented = false // Only the participant invitation flow can grant consent.
     const created = await db.participant.create({
       data: {
         name,

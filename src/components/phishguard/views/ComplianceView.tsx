@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — Compliance: built-in safeguards, consent management, sender
+// PhishGuard · Compliance: built-in safeguards, consent management, sender
 // domain allowlist, retention policy, and the administrative audit trail.
 
 import { useState } from "react";
@@ -69,7 +69,7 @@ const SAFEGUARDS: { title: string; detail: string }[] = [
   {
     title: "No credential collection",
     detail:
-      "Simulated pages may show a sign-in form, but what you type is cleared locally and never transmitted or stored — only the fact of a submission is recorded.",
+      "Practice fields are browser-only, cleared on submit or exit, and never included in tracking. Use invented values, never real credentials.",
   },
   {
     title: "No real email delivery",
@@ -80,16 +80,16 @@ const SAFEGUARDS: { title: string; detail: string }[] = [
     detail: "Participants must record consent before they can be enrolled in any campaign.",
   },
   {
-    title: "Sender-domain allowlist",
-    detail: "Campaign launches are rejected unless the template sender domain is approved.",
+    title: "Approved simulation domains",
+    detail: "Campaign launches are rejected unless both sender and participant domains are approved.",
   },
   {
     title: "Retention with auto-purge",
-    detail: "Configurable retention window (default 90 days) after which event data is purged.",
+    detail: "A sweep runs every minute while the service is running. Expired participation, events, training attempts and audit records are removed.",
   },
   {
     title: "Full audit trail",
-    detail: "Every administrative action — launches, consent changes, policy edits — is logged.",
+    detail: "Campaign launches, consent changes and policy edits are logged with actor attribution. This is an application audit trail, not tamper-proof storage.",
   },
   {
     title: "Small-group suppression",
@@ -230,6 +230,7 @@ function ConsentTab({
   onChanged: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   const setConsent = async (id: string, consented: boolean) => {
@@ -267,7 +268,7 @@ function ConsentTab({
         <div>
           <h2 className="text-sm font-semibold">Participant consent</h2>
           <p className="text-xs text-muted-foreground">
-            Enrollment requires consent. Withdrawing consent removes the participant from future campaigns.
+            Enrollment requires consent. Participants grant consent through their invitation. Withdrawal immediately blocks further interactions.
           </p>
         </div>
         <Button size="sm" onClick={() => setAddOpen(true)}>
@@ -276,6 +277,7 @@ function ConsentTab({
         </Button>
       </div>
 
+      {inviteUrl && <div className="mb-4 rounded-xl border border-emerald-700 bg-emerald-950/30 p-4"><p className="mb-2 text-sm font-medium">Private, single-use invitation · expires in 24 hours</p><p className="mb-2 text-xs text-muted-foreground">Open in a separate browser profile to demonstrate participant isolation. Share only with the intended authorized participant.</p><Input aria-label="Participant invitation" readOnly value={inviteUrl} onFocus={e=>e.target.select()}/></div>}
       {consent.length === 0 ? (
         <EmptyState icon={UserPlus} title="No participants yet" hint="Add your first participant to get started." />
       ) : (
@@ -309,7 +311,7 @@ function ConsentTab({
                     <TableCell>
                       <Switch
                         checked={row.consented}
-                        disabled={pendingId === row.id}
+                        disabled={pendingId === row.id || !row.consented}
                         onCheckedChange={(v) => void setConsent(row.id, v)}
                         aria-label={`Consent for ${row.name}`}
                       />
@@ -317,7 +319,7 @@ function ConsentTab({
                     <TableCell className="text-xs text-muted-foreground">
                       {row.consented && row.consentedAt
                         ? format(new Date(row.consentedAt), "MMM d, yyyy")
-                        : "—"}
+                        : "–"}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -327,6 +329,7 @@ function ConsentTab({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem disabled={!full?.active} onClick={async()=>{try{const r=await api<{url:string}>("/api/invitations",{method:"POST",body:JSON.stringify({participantId:row.id})});setInviteUrl(r.url);}catch(e){toast.error(apiErrorMessage(e));}}}>Create participant invitation</DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => full && void toggleActive(full)}
                             disabled={!full}
@@ -367,7 +370,7 @@ function AddParticipantDialog({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
-  const [consented, setConsented] = useState(true);
+  const [consented, setConsented] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
@@ -427,12 +430,12 @@ function AddParticipantDialog({
           <div className="flex items-center gap-2">
             <Checkbox
               id="p-consent"
-              checked={consented}
+              checked={false} disabled
               onCheckedChange={(v) => setConsented(v === true)}
               aria-label="Consent recorded now"
             />
             <Label htmlFor="p-consent" className="text-sm font-normal">
-              Consent recorded now (participant signed the authorization form)
+              Participant will consent through their private invitation.
             </Label>
           </div>
         </div>
@@ -708,7 +711,7 @@ function RetentionTab({
         >
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-red-400" aria-hidden="true" />
           <p className="text-xs leading-relaxed text-red-200/90">
-            Events older than the retention window are permanently purged. This cannot be undone —
+            Events older than the retention window are permanently purged. This cannot be undone –
             exports should be taken before reducing the window.
           </p>
         </div>
@@ -722,7 +725,7 @@ function RetentionTab({
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         Take the audit trail with you (CSV download), or trigger the retention purge ahead of
-        schedule. Exports include consent, delivery and reporting events only — never credential
+        schedule. Exports include consent, delivery and reporting events only · never credential
         values (there are none to include).
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -752,7 +755,7 @@ function RetentionTab({
               <AlertDialogTitle>Run retention purge now?</AlertDialogTitle>
               <AlertDialogDescription>
                 All simulated events older than {retention.defaultRetentionDays} days will be
-                permanently deleted. This cannot be undone — export first if you need the history.
+                permanently deleted. This cannot be undone · export first if you need the history.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

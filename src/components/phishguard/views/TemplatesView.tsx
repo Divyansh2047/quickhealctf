@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — Templates: library of simulated phishing emails with previews,
+// PhishGuard · Templates: library of simulated phishing emails with previews,
 // red flags, teaching moments, and a full editor (create / edit / delete).
 
 import { useState } from "react";
@@ -81,7 +81,7 @@ export default function TemplatesView() {
       <SectionTitle
         title="Phishing template library"
         icon={MailWarning}
-        description="Each simulated email ships with its red flags and a teaching moment shown instantly after a click."
+        description="Each simulated email ships with its red flags and a teaching moment shown after the landing-page decision."
         actions={
           <Button
             onClick={() => {
@@ -248,7 +248,7 @@ function TemplateDetailDialog({
                   dangerouslySetInnerHTML={{ __html: template.bodyHtml }}
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Preview is inert — links cannot be followed from here.
+                  Preview is inert · links cannot be followed from here.
                 </p>
               </TabsContent>
 
@@ -273,7 +273,7 @@ function TemplateDetailDialog({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   When a participant clicks a simulated link, the click is intercepted and this
-                  teaching moment is shown immediately — no credentials are ever requested.
+                  scenario-specific page opens. Coaching follows submission or reporting; practice input values never leave the browser.
                 </p>
               </TabsContent>
             </Tabs>
@@ -370,7 +370,7 @@ function TemplateEditorDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit template" : "New phishing template"}</DialogTitle>
           <DialogDescription id="tpl-editor-desc">
-            Simulated emails only — the platform never sends real mail or collects credentials.
+            Simulated emails only · the platform never sends real mail or collects credentials.
           </DialogDescription>
         </DialogHeader>
 
@@ -437,7 +437,7 @@ function TemplateEditorDialog({
             rows={3}
             value={landingMessage}
             onChange={(e) => setLandingMessage(e.target.value)}
-            placeholder="Shown instantly after a simulated click — explain the trick and the safe behavior."
+            placeholder="Shown after the participant confirms, reports or leaves the landing page · explain the trick and the safe behavior."
           />
         </div>
 
@@ -452,7 +452,7 @@ function TemplateEditorDialog({
                   next[idx] = e.target.value;
                   setRedFlags(next);
                 }}
-                placeholder={`Red flag #${idx + 1} — e.g. creates false urgency`}
+                placeholder={`Red flag #${idx + 1} · e.g. creates false urgency`}
                 aria-label={`Red flag ${idx + 1}`}
               />
               <Button

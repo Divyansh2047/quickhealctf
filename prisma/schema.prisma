@@ -20,6 +20,7 @@ model Participant {
   createdAt   DateTime             @default(now())
   enrollments Enrollment[]
   completions TrainingCompletion[]
+  attempts TrainingAttempt[]
 }
 
 // ============ Simulation Templates ============
@@ -96,6 +97,7 @@ model TrainingModule {
   redFlagTips String // JSON array
   createdAt   DateTime             @default(now())
   completions TrainingCompletion[]
+  attempts TrainingAttempt[]
 }
 
 model TrainingCompletion {
@@ -129,4 +131,17 @@ model AuditLog {
 model Setting {
   key   String @id
   value String
+}
+
+model TrainingAttempt {
+ id String @id @default(cuid())
+ participantId String
+ participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+ moduleId String
+ module TrainingModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+ phase String
+ score Int
+ total Int
+ createdAt DateTime @default(now())
+ @@index([participantId, moduleId])
 }

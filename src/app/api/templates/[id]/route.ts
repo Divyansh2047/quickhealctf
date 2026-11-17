@@ -22,6 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
+    if (await db.campaign.count({ where: { templateId: id, status: { not: 'draft' } } })) return NextResponse.json({ error: 'This template belongs to a launched campaign. Create a copy to preserve campaign evidence.' }, { status: 409 })
     const raw: unknown = await request.json().catch(() => null)
     const body = asRecord(raw)
     if (!body) {

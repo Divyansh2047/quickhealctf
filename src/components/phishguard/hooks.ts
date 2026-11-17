@@ -5,7 +5,7 @@
 // silent re-fetch (keeps current data on screen, no skeleton flicker).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+
 
 import { api, apiErrorMessage } from "./api";
 import type {
@@ -32,38 +32,22 @@ interface ApiDataState<T> {
 }
 
 export function useApiData<T>(path: string | null): ApiDataState<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState<boolean>(path !== null);
-  const [error, setError] = useState<string | null>(null);
-  const dataRef = useRef<T | null>(null);
-  const genRef = useRef(0);
-  const pathRef = useRef<string | null>(path);
-  pathRef.current = path;
-
+  const [state, setState] = useState<{path: string | null; data: T | null; loading: boolean; error: string | null}>({path, data:null, loading:!!path, error:null});
+  const generation = useRef(0);
   const refresh = useCallback(async () => {
-    const p = pathRef.current;
-    if (!p) return;
-    const gen = ++genRef.current;
-    if (dataRef.current === null) setLoading(true);
+    const gen = ++generation.current;
+    await Promise.resolve();
+    if (!path) return;
+    setState(previous => previous.path === path ? {...previous, loading: previous.data === null} : {path,data:null,loading:true,error:null});
     try {
-      const result = await api<T>(p);
-      if (gen !== genRef.current) return; // a newer request superseded this one
-      dataRef.current = result;
-      setData(result);
-      setError(null);
-    } catch (err) {
-      if (gen !== genRef.current) return;
-      setError(apiErrorMessage(err));
-    } finally {
-      if (gen === genRef.current) setLoading(false);
+      const data = await api<T>(path);
+      if (gen === generation.current) setState({path,data,loading:false,error:null});
+    } catch (error) {
+      if (gen === generation.current) setState(previous => ({path,data:previous.path===path?previous.data:null,loading:false,error:apiErrorMessage(error)}));
     }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [path, refresh]);
-
-  return { data, loading, error, refresh };
+  }, [path]);
+  useEffect(() => { void refresh(); return () => { generation.current += 1; }; }, [refresh]);
+  return {data: state.path===path?state.data:null, loading: state.path===path?state.loading:!!path, error:state.path===path?state.error:null, refresh};
 }
 
 /* --------------------------- typed endpoints --------------------------- */
@@ -154,61 +138,16 @@ export function useLiveFeed(): {
   const [status, setStatus] = useState<LiveFeedStatus>("connecting");
 
   useEffect(() => {
-    if (typeof window === "undefined") return; // SSR guard
-
-    // Connect to the websocket (live feed) service.
-    // Sandbox/gateway deployments: keep the default — the gateway routes
-    // `/?XTransformPort=3003` to the feed service. Bare-metal local runs
-    // (e.g. localhost without a gateway) set NEXT_PUBLIC_SOCKET_URL to the
-    // feed origin instead, e.g. NEXT_PUBLIC_SOCKET_URL=http://localhost:3003
-    const socketUrl =
-      process.env.NEXT_PUBLIC_SOCKET_URL ?? "/?XTransformPort=3003";
-    const socketInstance: Socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      forceNew: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000,
-    });
-
-    socketInstance.on("connect", () => {
-      setStatus("connected");
-    });
-
-    socketInstance.on("disconnect", () => {
-      setStatus("disconnected");
-    });
-
-    socketInstance.on("connect_error", () => {
-      setStatus("disconnected");
-    });
-
-    // Backfill: newest-last array of recent events (order normalized below).
-    socketInstance.on("recent-events", (backfill: LiveEvent[]) => {
-      if (!Array.isArray(backfill)) return;
-      const sorted = [...backfill]
-        .filter((ev) => ev && typeof ev === "object" && typeof ev.id === "string")
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-        )
-        .slice(0, LIVE_FEED_MAX);
-      setEvents(sorted);
-    });
-
-    // Single new event.
-    socketInstance.on("live-event", (ev: LiveEvent) => {
-      if (!ev || typeof ev !== "object" || typeof ev.id !== "string") return;
-      setEvents((prev) => {
-        if (prev.some((e) => e.id === ev.id)) return prev; // dedup
-        return [ev, ...prev].slice(0, LIVE_FEED_MAX);
-      });
-    });
-
-    return () => {
-      socketInstance.disconnect();
+    let active = true;
+    const poll = async () => {
+      try {
+        const data = await api<{events: LiveEvent[]}>("/api/live");
+        if (active) { setEvents(data.events); setStatus("connected"); }
+      } catch { if (active) setStatus("disconnected"); }
     };
+    void poll();
+    const timer = setInterval(() => void poll(), 3000);
+    return () => { active = false; clearInterval(timer); };
   }, []);
 
   return { events, status };

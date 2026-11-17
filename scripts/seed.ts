@@ -1,5 +1,5 @@
 /**
- * PhishGuard — Seed script
+ * PhishGuard · Seed script
  * Creates a rich, realistic demo dataset: participants, templates,
  * campaigns with a month of tracked events, training, compliance records.
  * Run: bun run scripts/seed.ts
@@ -21,7 +21,7 @@ function emailShell(headerColor: string, headerTitle: string, inner: string) {
   <div style="padding:22px 24px;border:1px solid #d8d8d8;border-top:none;border-radius:0 0 8px 8px;background:#ffffff;color:#2b2b2b;font-size:14px;line-height:1.55;">
     ${inner}
   </div>
-  <div style="margin-top:10px;font-size:11px;color:#999;text-align:center;">SIMULATION — controlled test environment. No real credentials are collected.</div>
+  <div style="margin-top:10px;font-size:11px;color:#999;text-align:center;">SIMULATION · controlled test environment. No real credentials are collected.</div>
 </div>`
 }
 
@@ -30,6 +30,7 @@ const btn = (label: string) =>
 
 async function main() {
   console.log('Clearing existing data...')
+  await db.trainingAttempt.deleteMany()
   await db.auditLog.deleteMany()
   await db.trackedEvent.deleteMany()
   await db.enrollment.deleteMany()
@@ -52,6 +53,7 @@ async function main() {
   // ---------------- Allowed sender domains ----------------
   await db.allowedDomain.createMany({
     data: [
+      { domain: 'acme-corp.test', approvedBy: 'demo-fixture' },
       { domain: 'mail.securelab.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(60) },
       { domain: 'notifications.acme-corp.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(60) },
       { domain: 'hr-benefits.acme-corp.test', approvedBy: 'security.admin@acme-corp.test', createdAt: day(60) },
@@ -110,7 +112,7 @@ async function main() {
         'You clicked a simulated credential-harvesting link. Real attacks like this lead to a fake sign-in page that steals your password. Always reach login portals by typing the known address yourself or using your company SSO bookmark.',
       redFlags: J([
         'Urgent deadline pressure ("expires today")',
-        'Generic greeting — no personalization',
+        'Generic greeting · no personalization',
         'Sender domain is look-alike, not your real tenant domain',
         'Button leads to a non-SSO page asking for credentials',
       ]),
@@ -133,11 +135,11 @@ async function main() {
       name: 'Overdue Invoice Payment',
       category: 'Invoice Fraud',
       difficulty: 'easy',
-      subject: 'Invoice #4471 — payment overdue, final notice',
+      subject: 'Invoice #4471 · payment overdue, final notice',
       senderName: 'BrightPath Billing',
       senderEmail: 'accounts@billing.acme-vendor.test',
       landingMessage:
-        'This simulated invoice scam is a classic payment-fraud attempt. Fraudsters impersonate vendors with overdue notices and changed bank details. Always verify payment changes through a known contact — never using details inside the email.',
+        'This simulated invoice scam is a classic payment-fraud attempt. Fraudsters impersonate vendors with overdue notices and changed bank details. Always verify payment changes through a known contact · never using details inside the email.',
       redFlags: J([
         'Threatening "final notice" language',
         'Bank details changed in the email body',
@@ -146,10 +148,10 @@ async function main() {
       ]),
       bodyHtml: emailShell(
         '#6d4c9f',
-        'BrightPath Solutions — Accounts',
+        'BrightPath Solutions · Accounts',
         `<p>Hello,</p>
         <p>Our records show invoice <b>#4471 ($2,480.00)</b> is now <b>14 days overdue</b>. This is our final notice before the account is escalated to collections.</p>
-        <p><b>Note:</b> our bank details changed this month — please use the updated account in the attached remittance advice.</p>
+        <p><b>Note:</b> our bank details changed this month · please use the updated account in the attached remittance advice.</p>
         <p style="margin:22px 0;">${btn('Review invoice & pay')}</p>
         <p>Kind regards,<br/>Accounts Receivable</p>`
       ),
@@ -163,11 +165,11 @@ async function main() {
       name: 'Payroll Verification Request',
       category: 'Credential Harvesting (simulated)',
       difficulty: 'medium',
-      subject: 'Payroll profile verification required — salary on hold',
+      subject: 'Payroll profile verification required · salary on hold',
       senderName: 'AcmeCorp HR Operations',
       senderEmail: 'hr-alerts@notifications.acme-corp.test',
       landingMessage:
-        'You clicked a simulated payroll-verification phish. Notice the manufactured consequence ("salary on hold") — attackers pair urgency with a financial stake. HR never verifies identity through links in email. When in doubt, open the HR portal from your bookmark.',
+        'You clicked a simulated payroll-verification phish. Notice the manufactured consequence ("salary on hold") · attackers pair urgency with a financial stake. HR never verifies identity through links in email. When in doubt, open the HR portal from your bookmark.',
       redFlags: J([
         'Salary suspension threat creates fear',
         "Sender domain 'notifications.acme-corp.test' is not the real HR domain",
@@ -193,11 +195,11 @@ async function main() {
       name: 'Confidential Org Changes',
       category: 'Curiosity / Confidential Data',
       difficulty: 'hard',
-      subject: 'RE: Confidential — Q4 org changes & affected roles',
+      subject: 'RE: Confidential · Q4 org changes & affected roles',
       senderName: 'Grace Wanjiru (HR)',
       senderEmail: 'grace.wanjiru@hr-benefits.acme-corp.test',
       landingMessage:
-        'Curiosity is one of the most exploited emotions in phishing. A "confidential" attachment about layoffs is bait engineered to bypass your judgment. Confirm sensitive HR communications through an internal, verified channel — and never open unexpected attachments.',
+        'Curiosity is one of the most exploited emotions in phishing. A "confidential" attachment about layoffs is bait engineered to bypass your judgment. Confirm sensitive HR communications through an internal, verified channel · and never open unexpected attachments.',
       redFlags: J([
         'Exploits curiosity and anxiety about layoffs',
         'Reply-to domain differs from the real internal HR domain',
@@ -206,9 +208,9 @@ async function main() {
       ]),
       bodyHtml: emailShell(
         '#455a64',
-        'HR — Confidential Correspondence',
+        'HR · Confidential Correspondence',
         `<p>Hi,</p>
-        <p>As discussed in the leadership call, the preliminary <b>Q4 org changes</b> are below. This list is not public — please keep it confidential until comms goes out.</p>
+        <p>As discussed in the leadership call, the preliminary <b>Q4 org changes</b> are below. This list is not public · please keep it confidential until comms goes out.</p>
         <p style="margin:22px 0;">${btn('Open confidential document')}</p>
         <p>Please do not forward this message.</p>
         <p>Grace<br/>People Operations</p>`
@@ -223,7 +225,7 @@ async function main() {
       name: 'Failed Delivery Notification',
       category: 'Consumer Scam',
       difficulty: 'easy',
-      subject: 'Your package could not be delivered — reschedule now',
+      subject: 'Your package could not be delivered · reschedule now',
       senderName: 'ExpressParcel',
       senderEmail: 'notice@mail.securelab.test',
       landingMessage:
@@ -236,7 +238,7 @@ async function main() {
       ]),
       bodyHtml: emailShell(
         '#d84315',
-        'ExpressParcel — Delivery Notice',
+        'ExpressParcel · Delivery Notice',
         `<p>Notification for: Employee,</p>
         <p>We attempted delivery of parcel <b>EX-8842190</b> today, but nobody was available. Your parcel is held at the local depot.</p>
         <p>A <b>$1.99 redelivery fee</b> applies to reschedule.</p>
@@ -253,11 +255,11 @@ async function main() {
       name: 'Urgent Executive Wire Transfer',
       category: 'CEO Fraud / BEC',
       difficulty: 'hard',
-      subject: 'Re: urgent — confidential acquisition payment',
+      subject: 'Re: urgent · confidential acquisition payment',
       senderName: 'Daniel Osei, CEO',
       senderEmail: 'd.osei.ceo@notifications.acme-corp.test',
       landingMessage:
-        'Executive impersonation (BEC) causes the largest financial losses of any phishing type. Real CEOs do not request secret wire transfers over email. Verify any payment request via a live call to a known number — even if the message appears to come from leadership.',
+        'Executive impersonation (BEC) causes the largest financial losses of any phishing type. Real CEOs do not request secret wire transfers over email. Verify any payment request via a live call to a known number · even if the message appears to come from leadership.',
       redFlags: J([
         'Authority pressure from "the CEO"',
         'Requests secrecy ("keep this between us")',
@@ -267,10 +269,10 @@ async function main() {
       bodyHtml: emailShell(
         '#37474f',
         'Executive Office',
-        `<p>I'm boarding a flight — short on time.</p>
+        `<p>I'm boarding a flight · short on time.</p>
         <p>We are closing a confidential acquisition. I need Finance to initiate a <b>$48,000 wire</b> to the escrow account I forwarded earlier. <b>Keep this between us</b> until the announcement.</p>
         <p style="margin:22px 0;">${btn('Open payment instructions')}</p>
-        <p>— Daniel</p>`
+        <p>– Daniel</p>`
       ),
       isBuiltIn: true,
       createdAt: day(25),
@@ -320,7 +322,7 @@ async function main() {
         evs.push({
           type: 'SUBMITTED',
           at: day(o.click as number, 14, 2),
-          note: 'Credentials entered on simulated page — input values discarded, never stored',
+          note: 'Credentials entered on simulated page · input values discarded, never stored',
         })
       if (o.report !== undefined)
         evs.push({
@@ -328,8 +330,8 @@ async function main() {
           at: day(o.report, 15, 10),
           note:
             o.click !== undefined
-              ? 'Reported after clicking — good recovery!'
-              : 'Reported before clicking — ideal behaviour!',
+              ? 'Reported after clicking · good recovery!'
+              : 'Reported before clicking · ideal behaviour!',
         })
       for (const ev of evs) {
         await db.trackedEvent.create({
@@ -339,7 +341,7 @@ async function main() {
     }
   }
 
-  // Campaign 1 — completed, 32 days ago (easy)
+  // Campaign 1 · completed, 32 days ago (easy)
   const c1 = await db.campaign.create({
     data: {
       name: 'Q3 Password Expiry Drill',
@@ -363,7 +365,7 @@ async function main() {
     { who: 'Ingrid Svensson', delivered: 32 },
   ])
 
-  // Campaign 2 — completed, 14 days ago (easy)
+  // Campaign 2 · completed, 14 days ago (easy)
   const c2 = await db.campaign.create({
     data: {
       name: 'Q4 Invoice Fraud Drill',
@@ -384,7 +386,7 @@ async function main() {
     { who: 'Hannah Lee', delivered: 14, open: 13, click: 12, landed: true, submitted: true, report: 12 },
   ])
 
-  // Campaign 3 — RUNNING, launched 5 days ago, partial activity (live demo target)
+  // Campaign 3 · RUNNING, launched 5 days ago, partial activity (live demo target)
   const c3 = await db.campaign.create({
     data: {
       name: 'Q4 Payroll Verification Drill',
@@ -406,7 +408,7 @@ async function main() {
     { who: 'Omar Farouk', delivered: 5 },
   ])
 
-  // Campaign 4 — DRAFT, includes a NON-CONSENTED participant (authorization gate demo)
+  // Campaign 4 · DRAFT, includes a NON-CONSENTED participant (authorization gate demo)
   const c4 = await db.campaign.create({
     data: {
       name: 'Q1 Confidential Data Test',
@@ -425,17 +427,17 @@ async function main() {
 
   const tEsign = await db.template.create({
     data: {
-      name: 'AI Studio — E-Signature Request',
+      name: 'AI Studio · E-Signature Request',
       category: 'Credential Harvesting (simulated)',
       difficulty: 'hard',
-      subject: 'eSign: "Offer Letter — Senior Analyst role" awaits your signature',
+      subject: 'eSign: "Offer Letter · Senior Analyst role" awaits your signature',
       senderName: 'NexumTech People Team via SignFlow',
       senderEmail: 'signflow-noreply@notifications.acme-corp.test',
       landingMessage:
-        'AI-crafted hard-difficulty lure: it references a plausible internal process and a real-looking document portal. The tells are subtle — the portal domain is not the approved vendor domain, and the message creates curiosity pressure with an attachment-like button. Verify signing requests in the HR system directly.',
+        'AI-crafted hard-difficulty lure: it references a plausible internal process and a real-looking document portal. The tells are subtle · the portal domain is not the approved vendor domain, and the message creates curiosity pressure with an attachment-like button. Verify signing requests in the HR system directly.',
       redFlags: J([
         'Very subtle: sender domain differs from the approved vendor list',
-        'Curiosity pressure — a confidential "offer letter" you were not expecting',
+        'Curiosity pressure · a confidential "offer letter" you were not expecting',
         'Login required before viewing the document (classic harvest pattern)',
         'No internal ticket or reference number',
       ]),
@@ -443,7 +445,7 @@ async function main() {
         '#4a148c',
         'SignFlow · Document Portal',
         `<p>Hi,</p>
-        <p><b>"Offer Letter — Senior Analyst (Fin-2025-118)"</b> is waiting for your e-signature. The document will be archived after 72 hours.</p>
+        <p><b>"Offer Letter · Senior Analyst (Fin-2025-118)"</b> is waiting for your e-signature. The document will be archived after 72 hours.</p>
         <p style="margin:22px 0;">${btn('Review &amp; sign document')}</p>
         <p>You may be asked to sign in with your work account to view the document.</p>
         <p>SignFlow for NexumTech · People Team</p>`
@@ -465,10 +467,10 @@ async function main() {
 Phishing is the #1 initial access vector in real breaches. Most attacks fail not because of technology, but because **one alert human** noticed something off.
 
 ## The big four red flags
-1. **Urgency & pressure** — "expires today", "final notice", "account will be suspended".
-2. **Authority or fear** — fake executives, fake IT, fake HR, threats of consequences.
-3. **Mismatched details** — sender domain look-alikes, links that don't match the text, generic greetings.
-4. **Unusual requests** — payments outside process, confidential attachments you didn't expect.
+1. **Urgency & pressure** · "expires today", "final notice", "account will be suspended".
+2. **Authority or fear** · fake executives, fake IT, fake HR, threats of consequences.
+3. **Mismatched details** · sender domain look-alikes, links that don't match the text, generic greetings.
+4. **Unusual requests** · payments outside process, confidential attachments you didn't expect.
 
 ## The 10-second habit
 Before clicking anything: **Stop. Inspect the sender. Hover the link. Ask: was I expecting this?**
@@ -483,7 +485,7 @@ No legitimate organization punishes you for verifying through an official channe
       durationMin: 4,
       summary: 'How attackers manufacture deadlines to shut down your critical thinking.',
       contentMd: `## The psychology
-Urgency narrows attention. When we feel time pressure, we switch from deliberate thinking to fast, automatic reactions — exactly what attackers want.
+Urgency narrows attention. When we feel time pressure, we switch from deliberate thinking to fast, automatic reactions · exactly what attackers want.
 
 ## Common pressure scripts
 - "Your account will be deleted in 24 hours"
@@ -494,7 +496,7 @@ Urgency narrows attention. When we feel time pressure, we switch from deliberate
 Any genuine deadline survives a 5-minute verification. **Urgency that punishes verification is the attack itself.**
 
 ## Practice
-Next urgent email: reply (in your head) — "Interesting claim. How would I verify this officially?"`,
+Next urgent email: reply (in your head) · "Interesting claim. How would I verify this officially?"`,
       redFlagTips: J(['Manufactured deadlines', 'Consequence threats', 'Secrecy + urgency combos']),
     },
     {
@@ -503,13 +505,13 @@ Next urgent email: reply (in your head) — "Interesting claim. How would I veri
       durationMin: 6,
       summary: 'Hovering, domain reading and the anatomy of a deceptive URL.',
       contentMd: `## Read URLs right-to-left
-In \`secure-acme.login-portal.test\`, the real domain owner is **login-portal.test** — everything before it is just a path.
+In \`secure-acme.login-portal.test\`, the real domain owner is **login-portal.test** · everything before it is just a path.
 
 ## Habits that catch 90% of malicious links
 1. **Hover before you click** (long-press on mobile) and read the tooltip.
 2. Prefer **bookmarks / SSO dashboards** for sensitive portals.
-3. Treat **shortened links** as opaque — expand them first.
-4. A padlock icon means encryption, **not honesty** — phishing sites have certificates too.
+3. Treat **shortened links** as opaque · expand them first.
+4. A padlock icon means encryption, **not honesty** · phishing sites have certificates too.
 
 ## Simulated clicks in this platform
 When you click a simulated link, you see a safe teaching moment instead of a credential page. No credentials are ever requested or stored here.`,
@@ -519,7 +521,7 @@ When you click a simulated link, you see a safe teaching moment instead of a cre
       title: 'Reporting: Your Superpower',
       category: 'Response',
       durationMin: 3,
-      summary: 'Why every report — right or wrong — makes the organization safer.',
+      summary: 'Why every report · right or wrong · makes the organization safer.',
       contentMd: `## Reports are data, not verdicts
 A report button press takes 3 seconds and gives the security team eyes on the threat. False positives cost nothing; a missed phish can cost millions.
 
@@ -527,7 +529,7 @@ A report button press takes 3 seconds and gives the security team eyes on the th
 Time-to-report is the metric that stops campaigns: reported phishes get blocked for everyone within minutes.
 
 ## In this platform
-Use **Report Phish** in the simulated inbox. Reporting *before* clicking is the ideal behaviour we train for — but reporting *after* clicking is just as valuable: say something early.`,
+Use **Report Phish** in the simulated inbox. Reporting *before* clicking is the ideal behaviour we train for · but reporting *after* clicking is just as valuable: say something early.`,
       redFlagTips: J(['Report early', 'Never fear false alarms', 'Report even after clicking']),
     },
     {
@@ -536,7 +538,7 @@ Use **Report Phish** in the simulated inbox. Reporting *before* clicking is the 
       durationMin: 7,
       summary: 'Business Email Compromise: the most expensive phishing category.',
       contentMd: `## What BEC looks like
-No links, no attachments — just a convincing "urgent, confidential" request from leadership. The FBI consistently ranks BEC among the costliest cyber-crime categories.
+No links, no attachments · just a convincing "urgent, confidential" request from leadership. The FBI consistently ranks BEC among the costliest cyber-crime categories.
 
 ## The tell-tale pattern
 1. Authority (CEO/CFO) + urgency ("before my flight") + secrecy ("keep this internal").
@@ -544,7 +546,7 @@ No links, no attachments — just a convincing "urgent, confidential" request fr
 3. Reply-to or display-name tricks.
 
 ## The unbreakable rule
-**Out-of-band verification**: any payment or credential request is confirmed by phone/video with a known number — never by replying to the email.`,
+**Out-of-band verification**: any payment or credential request is confirmed by phone/video with a known number · never by replying to the email.`,
       redFlagTips: J(['Authority + secrecy', 'Out-of-band verification', 'Process exceptions are attacks']),
     },
   ]
@@ -552,31 +554,10 @@ No links, no attachments — just a convincing "urgent, confidential" request fr
     await db.trainingModule.create({ data: { ...m, createdAt: day(50) } })
   }
 
-  // Training completions
-  const allModules = await db.trainingModule.findMany()
-  const completionPlan: [string, number[]][] = [
-    ['Elena Petrova', [0, 1, 2, 3]],
-    ['David Kim', [0, 1, 2, 3, 4]],
-    ['Grace Wanjiru', [0, 1, 3]],
-    ['Priya Nair', [0, 2, 3]],
-    ['Marcus Chen', [0, 3]],
-    ['Hannah Lee', [0, 3]],
-    ['Arjun Mehta', [0, 2, 4]],
-    ['Ingrid Svensson', [0, 1, 3]],
-    ['Sofia Rossi', [0, 4]],
-    ['Omar Farouk', [0, 3]],
-  ]
-  for (const [who, idxs] of completionPlan) {
-    for (const i of idxs) {
-      await db.trainingCompletion.create({
-        data: {
-          participantId: participants[who].id,
-          moduleId: allModules[i].id,
-          completedAt: day(20 + (i % 5), 14, 0),
-        },
-      })
-    }
-  }
+  // Learning scores start empty: only scored assessments can create completions.
+  // Normalize fixture chronology so no event precedes delivery.
+  const fixtureEvents = await db.trackedEvent.findMany({ include: { enrollment: true } })
+  for (const e of fixtureEvents) if (e.enrollment.deliveredAt && e.createdAt < e.enrollment.deliveredAt) await db.trackedEvent.update({ where: { id: e.id }, data: { createdAt: e.enrollment.deliveredAt } })
 
   // ---------------- Audit log ----------------
   const audits: [string, string, string, number][] = [

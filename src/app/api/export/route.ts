@@ -1,3 +1,5 @@
+import { participantAlias, csvCell } from '@/lib/privacy'
+import { purgeExpired } from '@/lib/retention'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
@@ -13,14 +15,7 @@ const querySchema = z.object({
 /* ------------------------------ CSV helpers ------------------------------ */
 
 /** Quote a field when it contains a comma, quote, or newline (RFC 4180). */
-function csvField(value: unknown): string {
-  const text =
-    value === null || value === undefined ? '' : value instanceof Date ? value.toISOString() : String(value)
-  if (/[",\r\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`
-  }
-  return text
-}
+const csvField = csvCell
 
 function toCsv(header: string[], rows: unknown[][]): string {
   const lines = [header, ...rows].map((row) => row.map(csvField).join(','))
@@ -31,6 +26,7 @@ function toCsv(header: string[], rows: unknown[][]): string {
 
 export async function GET(request: Request) {
   try {
+    await purgeExpired()
     const url = new URL(request.url)
     const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams))
     if (!parsed.success) {
@@ -47,21 +43,21 @@ export async function GET(request: Request) {
         include: {
           enrollment: {
             include: {
-              participant: { select: { email: true } },
+              participant: { select: { id: true } },
               campaign: { include: { template: { select: { category: true } } } },
             },
           },
         },
       })
-      header = ['id', 'type', 'createdAt', 'campaignName', 'participantEmail', 'templateCategory', 'note']
+      header = ['id', 'type', 'createdAt', 'campaignName', 'participantAlias', 'templateCategory', 'note']
       rows = events.map((event) => [
         event.id,
         event.type,
         event.createdAt.toISOString(),
         event.enrollment.campaign.name,
-        event.enrollment.participant.email,
+        participantAlias(event.enrollment.participant.id),
         event.enrollment.campaign.template.category,
-        event.note,
+        '',
       ])
     } else if (entity === 'campaigns') {
       const campaigns = await db.campaign.findMany({
@@ -117,8 +113,8 @@ export async function GET(request: Request) {
       }
       header = [
         'id',
-        'name',
-        'email',
+        'participantAlias',
+        'identityOmitted',
         'department',
         'consented',
         'active',
@@ -132,9 +128,9 @@ export async function GET(request: Request) {
       rows = participants.map((participant) => {
         const own = byParticipant.get(participant.id) ?? []
         return [
-          participant.id,
-          participant.name,
-          participant.email,
+          participantAlias(participant.id),
+          participantAlias(participant.id),
+          true,
           participant.department,
           participant.consented,
           participant.active,

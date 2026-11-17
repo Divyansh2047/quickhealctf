@@ -1,3 +1,4 @@
+import { purgeExpired } from '@/lib/retention'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import {
@@ -13,6 +14,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    await purgeExpired()
     const [participants, campaigns, enrollments, events, modules, completions, recent] =
       await Promise.all([
         db.participant.findMany(),
@@ -41,7 +43,7 @@ export async function GET() {
 
     const rates = computeRates(delivered, opens, clicks, reports)
     const consentedActiveCount = participants.filter((p) => p.consented && p.active).length
-    const trainingCompletionRate = pct(completions.length, consentedActiveCount * modules.length)
+    const trainingCompletionRate = pct(completions.filter(c => participants.some(p => p.id === c.participantId && p.active && p.consented)).length, consentedActiveCount * modules.length)
     const resilienceScore = computeResilienceScore(
       rates.clickRate,
       rates.reportRate,
@@ -61,7 +63,7 @@ export async function GET() {
     const recentEvents = recent.map((event) => ({
       id: event.id,
       type: event.type,
-      participant: event.enrollment.participant.name,
+      participant: 'Authorized participant',
       campaign: event.enrollment.campaign.name,
       template: event.enrollment.campaign.template.name,
       createdAt: event.createdAt.toISOString(),

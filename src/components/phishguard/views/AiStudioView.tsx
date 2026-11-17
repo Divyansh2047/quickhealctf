@@ -1,11 +1,12 @@
 "use client";
 
-// PhishGuard — AI Studio: violet-accented AI tooling for the simulation team.
+// PhishGuard · AI Studio: violet-accented AI tooling for the simulation team.
 // Tab 1 drafts a realistic (fictional) lure from a plain scenario; Tab 2
 // analyzes any suspicious email content and returns an explainable risk
 // dashboard. Both tabs degrade gracefully to heuristic mode when the AI
 // backend is unavailable.
 
+import { trainingCatalog } from "@/lib/training-catalog";
 import { useState } from "react";
 import {
   CheckCircle2,
@@ -61,9 +62,9 @@ import type {
 } from "../api";
 
 const DIFFICULTY_HINTS: Record<Difficulty, string> = {
-  easy: "Obvious bait — generic greeting, mismatched sender, visible urgency.",
+  easy: "Obvious bait · generic greeting, mismatched sender, visible urgency.",
   medium: "Plausible pretext with a couple of subtle tells (display-name spoof, odd link).",
-  hard: "Convincing spear-phish — familiar context, near-perfect sender, one hidden tell.",
+  hard: "Convincing spear-phish · familiar context, near-perfect sender, one hidden tell.",
 };
 
 const SAMPLE_PHISH = `URGENT: Your mailbox will be deactivated in 24 hours
@@ -83,7 +84,7 @@ const SAMPLE_LEGIT = `Hi Alex,
 
 Quick heads-up: the Q3 finance review moved to Thursday 14:00 in Room 4B.
 Agenda and the draft deck are already on the shared drive under
-/Finance/2025/Q3/review — no action needed before the meeting.
+/Finance/2025/Q3/review · no action needed before the meeting.
 
 Thanks,
 Priya (Finance Ops)`;
@@ -107,7 +108,7 @@ export default function AiStudioView() {
       <SectionTitle
         title="AI Studio"
         icon={Sparkles}
-        description="Draft fiction-grade simulation lures and analyze suspicious content — every AI output is clearly labeled and reviewed before use."
+        description="Create internal awareness exercises and screen suspicious messages for warning signs."
         actions={
           <Badge className="border border-violet-500/40 bg-violet-500/15 text-violet-400">
             <Sparkles className="size-3" aria-hidden="true" />
@@ -156,7 +157,7 @@ function TemplateGeneratorTab() {
 
   const generate = async () => {
     if (!scenario.trim()) {
-      toast.error("Describe a scenario first — even one sentence is enough.");
+      toast.error("Describe a scenario first · even one sentence is enough.");
       return;
     }
     setGenerating(true);
@@ -168,7 +169,7 @@ function TemplateGeneratorTab() {
       });
       setResult({ template: res.template, rationale: res.rationale, source: res.source });
       toast.success(
-        res.source === "ai" ? "Lure drafted by AI" : "Lure drafted in heuristic mode"
+        res.source === "ai" ? "Lure drafted by AI" : "Training draft ready"
       );
     } catch (err) {
       toast.error(apiErrorMessage(err));
@@ -192,9 +193,9 @@ function TemplateGeneratorTab() {
         bodyHtml: t.bodyHtml,
         landingMessage: t.landingMessage,
         redFlags: t.redFlags,
-        aiGenerated: true,
+        aiGenerated: result.source === "ai",
       });
-      toast.success(`Template "${t.name}" saved to the library — open Templates to review it.`);
+      toast.success(`Template "${t.name}" saved to the library · open Templates to review it.`);
     } catch (err) {
       toast.error(apiErrorMessage(err));
     } finally {
@@ -209,15 +210,22 @@ function TemplateGeneratorTab() {
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="ai-scenario">Scenario</Label>
+            <div className="flex flex-wrap gap-2">
+              {trainingCatalog.map(entry => (
+                <Button key={entry.id} size="sm" variant={scenario === entry.name ? "default" : "outline"} onClick={() => setScenario(entry.name)}>
+                  {entry.name}
+                </Button>
+              ))}
+            </div>
             <Textarea
               id="ai-scenario"
               rows={4}
               value={scenario}
               onChange={(e) => setScenario(e.target.value)}
-              placeholder="e.g. The CFO asks the finance team to urgently approve an invoice via a new supplier portal."
+              placeholder="e.g. A summer vacation ticket award"
             />
             <p className="text-[11px] text-muted-foreground">
-              Plain description is enough — the AI turns it into a full fictional email.
+              Choose a preset or describe one of the supported exercise types. Drafts run locally.
             </p>
           </div>
 
@@ -252,7 +260,7 @@ function TemplateGeneratorTab() {
             disabled={generating}
           >
             <Sparkles className="size-4" aria-hidden="true" />
-            {generating ? "AI is crafting a realistic lure…" : "Generate with AI"}
+            {generating ? "Preparing draft…" : "Generate training draft"}
           </Button>
 
           <div
@@ -272,7 +280,7 @@ function TemplateGeneratorTab() {
           <Card className="space-y-3 rounded-xl p-4 sm:p-6">
             <div className="flex items-center gap-2 text-xs font-medium text-violet-300">
               <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
-              AI is crafting a realistic lure…
+              Preparing draft…
             </div>
             <Skeleton className="h-5 w-1/3" />
             <Skeleton className="h-4 w-2/3" />
@@ -353,7 +361,7 @@ function TemplateGeneratorTab() {
             {/* Red flags */}
             {result.template.redFlags.length > 0 ? (
               <div className="mt-4">
-                <p className="text-sm font-semibold">Red flags taught by this lure</p>
+                <p className="text-sm font-semibold">Warning signs covered by this exercise</p>
                 <ul className="mt-2 space-y-1.5">
                   {result.template.redFlags.map((flag, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
@@ -380,7 +388,7 @@ function TemplateGeneratorTab() {
           <EmptyState
             icon={FlaskConical}
             title="No draft yet"
-            hint="Describe a scenario and press Generate with AI. The draft appears here with its red flags and rationale."
+            hint="Describe a scenario and press Generate training draft. The draft appears here with its red flags and rationale."
           />
         )}
       </div>
@@ -423,7 +431,7 @@ function PhishAnalyzerTab() {
               rows={10}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Paste any suspicious email — headers, subject, body text and links all help the analysis."
+              placeholder="Paste any suspicious email · headers, subject, body text and links all help the analysis."
               className="font-mono text-xs"
               spellCheck={false}
             />
@@ -459,8 +467,7 @@ function PhishAnalyzerTab() {
           </Button>
 
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Analysis stays inside PhishGuard — pasted content is used for this assessment only and
-            is never stored.
+            The local scan checks message text without opening links. If external AI is enabled, the pasted text may be sent to the configured provider.
           </p>
         </div>
       </Card>
@@ -487,7 +494,7 @@ function PhishAnalyzerTab() {
                 className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300"
               >
                 <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-                Heuristic mode (AI unavailable) — rules-based assessment below.
+                Heuristic mode (AI unavailable) · rules-based assessment below.
               </div>
             ) : null}
 

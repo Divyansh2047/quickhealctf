@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — Analytics: resilience gauge, trend, department rates, campaign
+// PhishGuard · Analytics: resilience gauge, trend, department rates, campaign
 // funnel + table, and a printable sample awareness report.
 
 import { useMemo, useState } from "react";
@@ -140,7 +140,7 @@ export default function AnalyticsView() {
       <SectionTitle
         title="Analytics & reporting"
         icon={BarChart3}
-        description="Aggregate simulated behavior across campaigns and departments — individual results stay anonymous."
+        description="Aggregate simulated behavior across campaigns and departments · named participant outcomes are excluded from this report."
       />
 
       {error && !data ? (
@@ -183,7 +183,7 @@ export default function AnalyticsView() {
                       className="border-amber-500/40 bg-amber-500/10 text-amber-400"
                     >
                       <EyeOff className="size-3" aria-hidden="true" />
-                      {d.department} — hidden for privacy ({d.participants})
+                      {d.department} · hidden for privacy ({d.participants})
                     </Badge>
                   ))}
                 </div>
@@ -238,7 +238,7 @@ export default function AnalyticsView() {
                   <>
                     <TimeToReportChart data={data.timeToReport ?? []} />
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Faster reporting blunts real attacks — celebrate teams in the left buckets.
+                      Faster reporting blunts real attacks · celebrate teams in the left buckets.
                     </p>
                   </>
                 )}
@@ -247,7 +247,7 @@ export default function AnalyticsView() {
               <Card className="rounded-xl p-4 sm:p-6">
                 <div className="mb-1 flex items-center gap-2">
                   <Lock className="size-4 text-amber-400" aria-hidden="true" />
-                  <h2 className="text-sm font-semibold">Repeat clickers — coaching queue</h2>
+                  <h2 className="text-sm font-semibold">Repeat clickers · coaching queue</h2>
                 </div>
                 {(data.repeatClickers?.length ?? 0) === 0 ? (
                   <EmptyState
@@ -295,7 +295,7 @@ export default function AnalyticsView() {
                     "Multiple clicks across campaigns are a strong coaching signal, not a blame list."}
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                  Privacy: this queue uses aggregate event counts only — no message content, no
+                  Privacy: this queue uses aggregate event counts only · no message content, no
                   keystrokes and no credentials are ever captured.
                 </p>
               </Card>
@@ -314,7 +314,7 @@ export default function AnalyticsView() {
                   <div>
                     <h2 className="text-sm font-semibold">AI executive narrative</h2>
                     <p className="text-xs text-muted-foreground">
-                      Turns the report into a leadership-ready story — risks, wins and next steps.
+                      Turns the report into a leadership-ready story · risks, wins and next steps.
                     </p>
                   </div>
                 </div>
@@ -351,7 +351,7 @@ export default function AnalyticsView() {
                       className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300"
                     >
                       <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-                      Heuristic mode (AI unavailable) — rules-based narrative below.
+                      Heuristic mode (AI unavailable) · rules-based narrative below.
                     </div>
                   ) : null}
                   <p className="text-sm font-medium leading-relaxed">
@@ -402,12 +402,12 @@ export default function AnalyticsView() {
                     </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    AI-generated — verify numbers against the tables before publishing.
+                    AI-generated · verify numbers against the tables before publishing.
                   </p>
                 </div>
               ) : (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Uses the live report JSON already fetched on this page — no data leaves the
+                  Uses the live report JSON already fetched on this page · no data leaves the
                   platform.
                 </p>
               )}
@@ -512,7 +512,7 @@ export default function AnalyticsView() {
                   <img src="/logo.png" alt="PhishGuard logo" className="h-10 w-10 rounded-lg" />
                   <div>
                     <h2 className="text-lg font-bold tracking-tight">
-                      Phishing Simulation — Awareness Report
+                      Phishing Simulation · Awareness Report
                     </h2>
                     <p className="print-muted text-xs text-muted-foreground">
                       PhishGuard Security Awareness Program · ACME Corp
@@ -667,7 +667,7 @@ export default function AnalyticsView() {
                                 {Math.round(d.vulnerabilityIndex)}
                               </Badge>
                             ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">–</span>
                             )}
                           </TableCell>
                         </TableRow>
@@ -683,7 +683,7 @@ export default function AnalyticsView() {
                   </Table>
                 </div>
                 <p className="print-muted mt-2 text-[11px] text-muted-foreground">
-                  Vulnerability index (0-100) blends click and credential-entry exposure — higher
+                  Vulnerability index (0-100) blends click rate and non-reporting · higher
                   means more coaching attention recommended.
                 </p>
               </section>
@@ -735,7 +735,7 @@ export default function AnalyticsView() {
                       <CheckCircle2 className="size-4 text-emerald-500" aria-hidden="true" />
                     )}
                     Simulated pages {data.privacy.credentialCollection ? "may" : "never"} request
-                    credentials — no passwords are collected or stored.
+                    credentials · no passwords are collected or stored.
                   </li>
                   <li className="flex items-center gap-2">
                     {data.privacy.realEmailDelivery ? (
@@ -743,7 +743,7 @@ export default function AnalyticsView() {
                     ) : (
                       <CheckCircle2 className="size-4 text-emerald-500" aria-hidden="true" />
                     )}
-                    No real emails are delivered — all simulation traffic stays inside PhishGuard.
+                    No real emails are delivered · all simulation traffic stays inside PhishGuard.
                   </li>
                   <li className="flex items-center gap-2">
                     {data.privacy.individualScoresAnonymous ? (
@@ -751,7 +751,7 @@ export default function AnalyticsView() {
                     ) : (
                       <TriangleAlert className="size-4 text-amber-500" aria-hidden="true" />
                     )}
-                    Individual results are reported anonymously; only aggregate statistics are shared.
+                    This report omits named individual outcomes. Small departments are suppressed on the server.
                   </li>
                   <li className="flex items-center gap-2">
                     <ShieldCheck className="size-4 text-emerald-500" aria-hidden="true" />

@@ -1,6 +1,7 @@
 "use client";
+import AssurancePanel from "../AssurancePanel";
 
-// PhishGuard — Overview: security awareness command center with a live event
+// PhishGuard · Overview: security awareness command center with a live event
 // stream (socket.io), system health strip and full lifecycle KPIs.
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -154,6 +155,7 @@ export default function OverviewView({ onNavigate }: { onNavigate: (v: ViewKey) 
 
   return (
     <div className="space-y-6">
+      <AssurancePanel onNavigate={onNavigate} />
       {/* Greeting strip */}
       <Card className="rounded-xl border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-card to-card p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -178,13 +180,13 @@ export default function OverviewView({ onNavigate }: { onNavigate: (v: ViewKey) 
           <div className="flex flex-col items-start gap-2 sm:items-end">
             <span className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
               <ShieldCheck className="size-3.5" aria-hidden="true" />
-              Simulation only — no real emails sent
+              Simulation only · no real emails sent
             </span>
             {/* System status strip */}
             <div className="flex items-center gap-3 rounded-full border border-border/60 bg-card/60 px-3 py-1">
               <StatusDot ok={health?.checks.database} label="Database" />
               <StatusDot ok={health?.checks.liveFeed} label="Live feed" />
-              <StatusDot ok={health?.checks.ai} label="AI engine" />
+              <StatusDot ok={health?.ok} label={health?.checks.ai ? "External AI configured" : "Local coaching"} />
             </div>
           </div>
         </div>
@@ -326,7 +328,7 @@ export default function OverviewView({ onNavigate }: { onNavigate: (v: ViewKey) 
             {shownEvents.length > 0 ? (
               <p className="mt-2 text-[11px] text-muted-foreground">
                 {liveEvents.length > 0
-                  ? "Streaming from the live feed — newest first."
+                  ? "Streaming from the live feed · newest first."
                   : "Showing the latest snapshot (feed offline)."}
               </p>
             ) : null}
@@ -392,15 +394,15 @@ export default function OverviewView({ onNavigate }: { onNavigate: (v: ViewKey) 
             </p>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
               <li className="flex items-center gap-2">
-                <span className="font-semibold text-red-400">40%</span> click resilience — employees
+                <span className="font-semibold text-red-400">40%</span> click resilience · employees
                 who did <span className="italic">not</span> click simulated links
               </li>
               <li className="flex items-center gap-2">
-                <span className="font-semibold text-emerald-400">40%</span> reporting — phishes
+                <span className="font-semibold text-emerald-400">40%</span> reporting · phishes
                 reported through the Report Phish action
               </li>
               <li className="flex items-center gap-2">
-                <span className="font-semibold text-teal-400">20%</span> training completion —
+                <span className="font-semibold text-teal-400">20%</span> training completion –
                 awareness modules finished by enrolled staff
               </li>
             </ul>

@@ -1,3 +1,4 @@
+import { purgeExpired } from '@/lib/retention'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { buildRetentionDetail } from '@/app/api/_lib/shared'
@@ -6,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    await purgeExpired()
     const [participants, domains, retention, auditLogs] = await Promise.all([
       db.participant.findMany({ orderBy: { name: 'asc' } }),
       db.allowedDomain.findMany({ orderBy: { createdAt: 'desc' } }),

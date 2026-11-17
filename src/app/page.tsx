@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — app shell: sticky header, desktop sidebar, mobile pill nav,
+// PhishGuard · app shell: sticky header, desktop sidebar, mobile pill nav,
 // view switching and the simulation-only footer.
 
 import { useState } from "react";
@@ -33,6 +33,7 @@ import OverviewView from "@/components/phishguard/views/OverviewView";
 import TemplatesView from "@/components/phishguard/views/TemplatesView";
 import TestInboxView from "@/components/phishguard/views/TestInboxView";
 import TrainingView from "@/components/phishguard/views/TrainingView";
+import { SessionGate, SessionBar, useIdentity } from "@/components/phishguard/SessionGate";
 import type { ViewKey } from "@/components/phishguard/view-keys";
 
 const NAV_ITEMS: { key: ViewKey; label: string; icon: LucideIcon }[] = [
@@ -47,8 +48,12 @@ const NAV_ITEMS: { key: ViewKey; label: string; icon: LucideIcon }[] = [
   { key: "compliance", label: "Compliance", icon: ShieldCheck },
 ];
 
-export default function Home() {
-  const [view, setView] = useState<ViewKey>("overview");
+export default function Home() { return <SessionGate><Workspace /></SessionGate>; }
+
+function Workspace() {
+  const identity = useIdentity();
+  const navItems = identity.role === "admin" ? NAV_ITEMS : NAV_ITEMS.filter(i => ["inbox", "training"].includes(i.key));
+  const [view, setView] = useState<ViewKey>(identity.role === "admin" ? "overview" : "inbox");
 
   return (
     <div className="dark flex min-h-screen flex-col bg-background text-foreground">
@@ -79,7 +84,7 @@ export default function Home() {
               <ShieldAlert className="size-3" aria-hidden="true" />
               AUTHORIZED USE ONLY
             </Badge>
-            <Badge className="hidden border border-emerald-500/40 bg-emerald-500/15 text-emerald-400 sm:inline-flex">
+            <Badge className="hidden border border-sky-500/40 bg-sky-500/15 text-sky-400 sm:inline-flex">
               DEMO DATA
             </Badge>
           </div>
@@ -92,7 +97,7 @@ export default function Home() {
         className="no-print border-b border-border/60 lg:hidden"
       >
         <div className="flex gap-1.5 overflow-x-auto px-3 py-2">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = view === item.key;
             const Icon = item.icon;
             return (
@@ -121,7 +126,7 @@ export default function Home() {
         className="no-print fixed bottom-0 left-0 top-16 hidden w-60 flex-col border-r border-border/60 bg-sidebar/60 lg:flex"
       >
         <nav className="flex flex-col gap-1 p-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = view === item.key;
             const Icon = item.icon;
             return (
@@ -138,7 +143,7 @@ export default function Home() {
                 )}
               >
                 <Icon
-                  className={cn("size-4", active && "text-emerald-400")}
+                  className={cn("size-4", active && "text-sky-400")}
                   aria-hidden="true"
                 />
                 {item.label}
@@ -155,6 +160,7 @@ export default function Home() {
 
       {/* ------------------------------ Main area ------------------------------ */}
       <div className="flex flex-1 flex-col lg:ml-60">
+        <SessionBar />
         <main className="flex-1">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6">
             <motion.div
@@ -179,8 +185,8 @@ export default function Home() {
         {/* ------------------------------ Footer ------------------------------ */}
         <footer className="mt-auto border-t border-border/60 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 no-print sm:px-6">
           <p className="mx-auto max-w-[1400px] text-xs leading-relaxed text-muted-foreground">
-            Simulation only — no real credentials are collected · No real emails are sent ·
-            Event data auto-purges after the retention window · PhishGuard © 2025
+            Simulation only · no real credentials are collected · No real emails are sent ·
+            Retention runs while the service is running · PhishGuard © 2026
           </p>
         </footer>
       </div>

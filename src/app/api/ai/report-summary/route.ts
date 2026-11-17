@@ -15,7 +15,7 @@ const bodySchema = z.object({
   report: z.record(z.string(), z.unknown()),
 })
 
-// LLM output shape — parsed defensively, anything off goes to the fallback.
+// LLM output shape · parsed defensively, anything off goes to the fallback.
 const summarySchema = z.object({
   executiveSummary: z.string().min(1),
   narrative: z.string().min(1),
@@ -24,7 +24,7 @@ const summarySchema = z.object({
   nextSteps: z.array(z.string()),
 })
 
-const SYSTEM_PROMPT = `You are a CISO-level security awareness program analyst writing the executive section of a phishing-simulation report produced by PhishGuard, an authorized awareness platform. Summarize ONLY the data you are given — never invent numbers. Keep a professional, board-ready tone. Respect privacy: reference departments, not individuals.
+const SYSTEM_PROMPT = `You are a CISO-level security awareness program analyst writing the executive section of a phishing-simulation report produced by PhishGuard, an authorized awareness platform. Summarize ONLY the data you are given · never invent numbers. Keep a professional, board-ready tone. Respect privacy: reference departments, not individuals.
 
 Respond with valid JSON only, no markdown fences. JSON shape:
 { "executiveSummary": "3-4 sentence overview quoting the key numbers", "narrative": "2 short paragraphs separated by a blank line: what the data says, how it changed", "keyRisks": string[] (1-5 items), "wins": string[] (1-5 items), "nextSteps": string[] (2-5 items) }`
@@ -60,7 +60,7 @@ function fallbackSummary(report: Record<string, unknown>): {
 
   const executiveSummary = `Across the reporting period ${delivered} simulated phishing emails were delivered. The click rate stands at ${clickRate}% and ${reportRate}% of simulated phishes were reported by participants, producing a program resilience score of ${resilienceScore}/100. These figures cover consented participants only, and no credential data is ever collected by the platform.`
 
-  const narrative = `The simulation data shows ${clicks} click(s) and ${reports} report(s) against ${delivered} deliveries. A click rate of ${clickRate}% with a report rate of ${reportRate}% indicates how often staff engaged with simulated lures versus how often they flagged them, and the overall resilience score of ${resilienceScore} blends both with training completion.\n\nCompared with the start of the program, the goal is a falling click rate and a rising report rate; department-level vulnerability indexes in this report show where coaching should focus next. Results are aggregated for team leads, while individual outcomes remain visible to administrators only.`
+  const narrative = `The simulation data shows ${clicks} click(s) and ${reports} report(s) against ${delivered} deliveries. A click rate of ${clickRate}% with a report rate of ${reportRate}% indicates how often staff engaged with simulated lures versus how often they flagged them, and the overall resilience score of ${resilienceScore} blends both with training completion.\n\nCompared with the start of the program, the goal is a falling click rate and a rising report rate; department-level vulnerability indexes in this report show where coaching should focus next. Results are aggregated for team leads, while named outcomes are excluded from this summary.`
 
   const keyRisks: string[] = []
   if (clickRate >= 30) {
@@ -93,7 +93,7 @@ function fallbackSummary(report: Record<string, unknown>): {
 
   const nextSteps = [
     'Schedule micro-training for departments with the highest vulnerability index.',
-    `Reinforce reporting habits — the next campaign should push the report rate above ${Math.min(100, Math.round(reportRate) + 10)}%.`,
+    `Reinforce reporting habits · the next campaign should push the report rate above ${Math.min(100, Math.round(reportRate) + 10)}%.`,
     'Review the top red flags report and refresh templates that no longer challenge staff.',
   ]
 
@@ -124,7 +124,10 @@ export async function POST(request: Request) {
         : zodFirstIssueMessage(parsed.error)
       return NextResponse.json({ error: message }, { status: 400 })
     }
-    const report = parsed.data.report
+    const input = parsed.data.report
+    // Explicit aggregation allowlist: no names, IDs, free-text notes or raw report data sent externally.
+    const overall = asRecord(input.overall) ?? {}
+    const report = { overall: Object.fromEntries(['delivered','opens','clicks','reports','clickRate','reportRate','resilienceScore','trainingCompletionRate'].map(k => [k, asNumber(overall[k]) ?? 0])) }
 
     try {
       const result = await withTimeout(

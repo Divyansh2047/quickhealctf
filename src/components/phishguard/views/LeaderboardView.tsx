@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — Leaderboard: gamified awareness standings. Individual scores
+// PhishGuard · Leaderboard: gamified awareness standings. Individual scores
 // reward reporting and safe behavior; department standings aggregate the same
 // signals. Privacy note from the API is displayed verbatim.
 
@@ -39,21 +39,21 @@ import { EmptyState, ErrorState, initials, relativeTime, SectionTitle } from "..
 import type { LeaderboardIndividual } from "../api";
 
 const PODIUM_STYLES = [
-  // 1st — gold
+  // 1st · gold
   {
     wrap: "border-amber-500/40 bg-gradient-to-b from-amber-500/15 via-card to-card",
     icon: "border-amber-500/40 bg-amber-500/15 text-amber-400",
     rank: "text-amber-400",
     chip: "border-amber-500/40 bg-amber-500/15 text-amber-400",
   },
-  // 2nd — silver
+  // 2nd · silver
   {
     wrap: "border-zinc-400/40 bg-gradient-to-b from-zinc-400/15 via-card to-card",
     icon: "border-zinc-400/40 bg-zinc-400/15 text-zinc-300",
     rank: "text-zinc-300",
     chip: "border-zinc-400/40 bg-zinc-400/15 text-zinc-300",
   },
-  // 3rd — bronze
+  // 3rd · bronze
   {
     wrap: "border-amber-700/40 bg-gradient-to-b from-amber-700/15 via-card to-card",
     icon: "border-amber-700/40 bg-amber-700/15 text-amber-500",
@@ -84,7 +84,7 @@ export default function LeaderboardView() {
       <SectionTitle
         title="Awareness leaderboard"
         icon={Trophy}
-        description="Reporting phishes and completing training earns points — clickers and submitters lose them. The queue rewards the behaviors that stop real attacks."
+        description="Reporting phishes and completing training earns points · clickers and submitters lose them. The queue rewards the behaviors that stop real attacks."
         actions={
           data?.leaderboard.meta?.generatedAt ? (
             <span className="text-xs text-muted-foreground">
@@ -211,7 +211,7 @@ export default function LeaderboardView() {
                   {rest.length === 0 && individuals.length <= 3 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center text-xs text-muted-foreground">
-                        Everyone is on the podium — keep reporting to grow the standings.
+                        Everyone is on the podium · keep reporting to grow the standings.
                       </TableCell>
                     </TableRow>
                   ) : null}
@@ -319,11 +319,11 @@ export default function LeaderboardView() {
                         <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
                           +8
                         </Badge>
-                        Safely ignored a simulation (no click)
+                        Reported without submitting
                       </li>
                       <li className="flex items-center gap-2">
                         <Badge variant="outline" className="border-red-500/40 bg-red-500/15 text-red-400">
-                          −10
+                          0
                         </Badge>
                         Clicked a simulated link
                       </li>
@@ -331,7 +331,7 @@ export default function LeaderboardView() {
                         <Badge variant="outline" className="border-red-500/40 bg-red-500/15 text-red-400">
                           −20
                         </Badge>
-                        Submitted credentials on a simulated page
+                        Confirmed a simulated request
                       </li>
                     </ul>
                   </div>
@@ -340,7 +340,7 @@ export default function LeaderboardView() {
                       Badges
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      Badges are awarded automatically as you report and train — for example a
+                      Badges are awarded automatically as you report and train · for example a
                       first correct report, consistently reporting quickly, clean runs with no
                       clicks, and training milestones. They appear next to your name on the
                       podium and in the standings table.
@@ -416,7 +416,7 @@ function IndividualRow({ person, rank }: { person: LeaderboardIndividual; rank: 
       <TableCell>
         <span className="flex max-w-56 flex-wrap gap-1">
           {person.badges.length === 0 ? (
-            <span className="text-xs text-muted-foreground">—</span>
+            <span className="text-xs text-muted-foreground">–</span>
           ) : (
             person.badges.map((b) => (
               <Badge key={b} variant="outline" className="text-[9px] text-muted-foreground">

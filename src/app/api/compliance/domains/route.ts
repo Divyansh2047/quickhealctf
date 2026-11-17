@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     if (!DOMAIN_PATTERN.test(domain)) {
       return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 })
     }
-    const approvedBy = (asString(body.approvedBy) ?? '').trim()
+    const approvedBy = ADMIN_ACTOR
     if (!approvedBy) {
       return NextResponse.json({ error: 'approvedBy is required' }, { status: 400 })
     }

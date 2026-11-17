@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ADMIN_ACTOR, logAudit } from '@/lib/audit'
 import { checkCampaignAuthorization } from '@/lib/authz'
-import { recordEvent } from '@/lib/events'
 import {
   asRecord,
   asString,
@@ -46,35 +45,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (action === 'launch') {
-      if (campaign.status !== 'draft') {
-        return NextResponse.json({ error: 'Only draft campaigns can be launched' }, { status: 400 })
-      }
-      const violations = await checkCampaignAuthorization({
-        senderEmail: campaign.template.senderEmail,
-        participants: campaign.enrollments.map((enrollment) => ({
-          id: enrollment.participantId,
-          name: enrollment.participant.name,
-          consented: enrollment.participant.consented,
-          active: enrollment.participant.active,
-        })),
+      const violation = await db.$transaction(async tx => {
+        const current = await tx.campaign.findUnique({ where: { id }, include: { template: true, enrollments: { include: { participant: true } } } })
+        if (!current || current.status !== 'draft') return 'Only draft campaigns can be launched'
+        if (!current.enrollments.length) return 'At least one participant is required'
+        const domains = new Set((await tx.allowedDomain.findMany()).map(d => d.domain))
+        if (!domains.has(current.template.senderEmail.split('@').pop()!.toLowerCase())) return 'Sender domain is not approved'
+        for (const e of current.enrollments) {
+          if (!e.participant.active || !e.participant.consented) return 'Every participant must be active and consented'
+          if (!domains.has(e.participant.email.split('@').pop()!.toLowerCase())) return 'Participant domain is not approved'
+        }
+        const now = new Date()
+        await tx.enrollment.updateMany({ where: { campaignId: id }, data: { deliveredAt: now } })
+        for (const e of current.enrollments) await tx.trackedEvent.create({ data: { enrollmentId: e.id, type: 'DELIVERED', createdAt: now } })
+        await tx.campaign.update({ where: { id }, data: { status: 'running', launchedAt: now } })
+        await tx.auditLog.create({ data: { action: 'CAMPAIGN_LAUNCHED', actor: ADMIN_ACTOR, detail: `Campaign launched for ${current.enrollments.length} authorized participants` } })
+        return null
       })
-      if (violations.length > 0) {
-        return NextResponse.json(
-          { error: 'Authorization checks failed', violations },
-          { status: 400 }
-        )
-      }
-      const now = new Date()
-      await db.enrollment.updateMany({ where: { campaignId: id }, data: { deliveredAt: now } })
-      await Promise.all(
-        campaign.enrollments.map((enrollment) => recordEvent(enrollment.id, 'DELIVERED'))
-      )
-      await db.campaign.update({ where: { id }, data: { status: 'running', launchedAt: now } })
-      await logAudit(
-        'CAMPAIGN_LAUNCHED',
-        ADMIN_ACTOR,
-        `Campaign "${campaign.name}" launched for ${campaign.enrollments.length} authorized participants`
-      )
+      if (violation) return NextResponse.json({ error: violation }, { status: 409 })
     } else if (action === 'complete') {
       if (campaign.status !== 'running') {
         return NextResponse.json(

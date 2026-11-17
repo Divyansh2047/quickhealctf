@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — Campaigns: list, detail dialog with lifecycle actions, and
+// PhishGuard · Campaigns: list, detail dialog with lifecycle actions, and
 // a 3-step new-campaign wizard (details → participants → review).
 
 import { useMemo, useState } from "react";
@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -296,22 +295,7 @@ function CampaignDetailDialog({
     }
   };
 
-  const simulate = async (campaignId: string) => {
-    setBusy("simulate");
-    try {
-      const res = await api<{ created: number; campaign: CampaignDetail }>(
-        `/api/campaigns/${campaignId}/simulate`,
-        { method: "POST", body: JSON.stringify({}) }
-      );
-      toast.success(`Simulated ${res.created} interactions`);
-      await refresh();
-      onChanged();
-    } catch (err) {
-      toast.error(apiErrorMessage(err));
-    } finally {
-      setBusy(null);
-    }
-  };
+
 
   const remove = async (campaignId: string) => {
     setBusy("delete");
@@ -470,14 +454,7 @@ function CampaignDetailDialog({
                 </Button>
               ) : null}
               {campaign.status === "running" ? (
-                <Button
-                  variant="outline"
-                  onClick={() => void simulate(campaign.id)}
-                  disabled={busy !== null}
-                >
-                  <MousePointerClick className="size-4" aria-hidden="true" />
-                  {busy === "simulate" ? "Simulating…" : "Simulate activity"}
-                </Button>
+                <p className="rounded-lg border border-emerald-800 p-3 text-xs text-emerald-200">Use Test Inbox to record real demo decisions. Random activity generation is disabled.</p>
               ) : null}
               {campaign.status === "running" ? (
                 <AlertDialog>
@@ -647,7 +624,7 @@ function NewCampaignWizard({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-xl" aria-describedby="wizard-desc">
+      <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-2xl" aria-describedby="wizard-desc">
         <DialogHeader>
           <DialogTitle>New simulation campaign</DialogTitle>
           <DialogDescription id="wizard-desc">
@@ -689,7 +666,7 @@ function NewCampaignWizard({
               <Label htmlFor="camp-name">Campaign name</Label>
               <Input
                 id="camp-name"
-                placeholder="Q3 Finance — Urgency wave"
+                placeholder="Q3 Finance · Urgency wave"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -720,7 +697,7 @@ function NewCampaignWizard({
               </Select>
               {template ? (
                 <p className="text-xs text-muted-foreground">
-                  {template.subject} — from {template.senderName} &lt;
+                  {template.subject} · from {template.senderName} &lt;
                   <span className="font-mono">{template.senderEmail}</span>&gt;
                 </p>
               ) : null}
@@ -744,12 +721,12 @@ function NewCampaignWizard({
         ) : null}
 
         {step === 2 ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
                 {selectedIds.length} of {consented.length} consenting participants selected
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -770,7 +747,7 @@ function NewCampaignWizard({
                 hint="Add participants under Compliance → Consent first."
               />
             ) : (
-              <ScrollArea className="max-h-64 rounded-lg border">
+              <div className="max-h-64 overflow-y-auto overscroll-contain rounded-lg border" role="region" aria-label="Campaign participants" tabIndex={0}>
                 <ul className="divide-y divide-border/60">
                   {participants.map((p) => {
                     const checked = selectedIds.includes(p.id);
@@ -793,10 +770,11 @@ function NewCampaignWizard({
                           htmlFor={`wiz-${p.id}`}
                           className="min-w-0 flex-1 cursor-pointer text-sm"
                         >
-                          <span className="font-medium">{p.name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">{p.email}</span>
+                          <span className="block break-words font-medium">{p.name}</span>
+                          <span className="block break-all text-xs text-muted-foreground">{p.email}</span>
+                          <span className="block text-xs text-muted-foreground sm:hidden">{p.department}</span>
                         </label>
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="hidden shrink-0 text-[10px] sm:inline-flex">
                           {p.department}
                         </Badge>
                         {p.consented ? (
@@ -820,10 +798,10 @@ function NewCampaignWizard({
                     return row;
                   })}
                 </ul>
-              </ScrollArea>
+              </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Only participants with recorded consent can be enrolled — enforced by the platform.
+              Only participants with recorded consent can be enrolled · enforced by the platform.
             </p>
           </div>
         ) : null}
@@ -835,7 +813,7 @@ function NewCampaignWizard({
               <dl className="mt-2 space-y-2">
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Campaign</dt>
-                  <dd className="font-medium">{name || "—"}</dd>
+                  <dd className="font-medium">{name || "–"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Template</dt>
@@ -847,13 +825,13 @@ function NewCampaignWizard({
                         <DifficultyBadge difficulty={template.difficulty} />
                       </span>
                     ) : (
-                      "—"
+                      "–"
                     )}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Sender</dt>
-                  <dd className="font-mono text-xs">{template?.senderEmail ?? "—"}</dd>
+                  <dd className="font-mono text-xs">{template?.senderEmail ?? "–"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Participants</dt>

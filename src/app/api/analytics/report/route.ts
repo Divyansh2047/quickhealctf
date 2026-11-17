@@ -1,3 +1,4 @@
+import { purgeExpired } from '@/lib/retention'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { parseJsonArray } from '@/lib/events'
@@ -39,7 +40,7 @@ function buildTimeToReport(enrollments: ReportEnrollment[]): { bucket: string; c
   return buckets
 }
 
-/** Participants who clicked in 2+ campaigns — coaching candidates. */
+/** Participants who clicked in 2+ campaigns · coaching candidates. */
 function buildRepeatClickers(
   enrollments: ReportEnrollment[]
 ): { name: string; department: string; clicks: number; submitted: number; reports: number }[] {
@@ -77,6 +78,7 @@ function pickTopRiskyDepartment(departments: DepartmentStat[]): string {
 
 export async function GET() {
   try {
+    await purgeExpired()
     const [participants, campaigns, enrollments, events, modules, completions, retention] =
       await Promise.all([
         db.participant.findMany(),
@@ -99,7 +101,7 @@ export async function GET() {
 
     const rates = computeRates(delivered, opens, clicks, reports)
     const consentedActiveCount = participants.filter((p) => p.consented && p.active).length
-    const trainingCompletions = completions.length
+    const trainingCompletions = completions.filter(c => participants.some(p => p.id === c.participantId && p.active && p.consented)).length
     const trainingCompletionRate = pct(trainingCompletions, consentedActiveCount * modules.length)
     const resilienceScore = computeResilienceScore(
       rates.clickRate,
@@ -179,35 +181,35 @@ export async function GET() {
     const conditional: string[] = []
     if (rates.clickRate > 30) {
       conditional.push(
-        'Click rates above 30% indicate urgency-based lures are still effective — schedule the "Urgency & Pressure Tactics" module for all departments.'
+        'Click rates above 30% indicate urgency-based lures are still effective · schedule the "Urgency & Pressure Tactics" module for all departments.'
       )
     }
     if (rates.reportRate < 25) {
       conditional.push(
-        'Reporting rates below 25% show suspicious emails are going unreported — reinforce the "Spot & Report Phishing" module in your next security briefing.'
+        'Reporting rates below 25% show suspicious emails are going unreported · reinforce the "Spot & Report Phishing" module in your next security briefing.'
       )
     }
     for (const department of departments) {
       if (department.clickRate > 50) {
         conditional.push(
-          `${department.department} shows elevated click susceptibility — assign targeted micro-training.`
+          `${department.department} shows elevated click susceptibility · assign targeted micro-training.`
         )
       }
     }
     if (trainingCompletionRate < 70) {
       conditional.push(
-        'Training completion is below 70% — block calendar time this week and send reminders to participants with outstanding modules.'
+        'Training completion is below 70% · block calendar time this week and send reminders to participants with outstanding modules.'
       )
     }
     if (unconsentedCount > 0) {
       conditional.push(
-        `${unconsentedCount} participant(s) have not yet granted consent — follow up before including them in future simulations.`
+        `${unconsentedCount} participant(s) have not yet granted consent · follow up before including them in future simulations.`
       )
     }
     const recommendations = [
       ...conditional.slice(0, 4),
-      'All analytics are aggregated; individual simulation results are visible only to program administrators for coaching purposes.',
-      `Event data is auto-purged after the configured retention window (currently ${retention.defaultRetentionDays} days).`,
+      'Shared report omits named participant outcomes and suppresses departments with fewer than three active participants.',
+      `Retention: up to ${retention.defaultRetentionDays} days, shortened by campaign policy. Automatic sweep ${retention.autoPurge ? "enabled while the service runs" : "disabled"}.`,
     ]
 
     const report = {
@@ -222,7 +224,7 @@ export async function GET() {
         { stage: 'reported', count: reports },
       ],
       timeToReport: buildTimeToReport(enrollments),
-      repeatClickers: buildRepeatClickers(enrollments),
+      repeatClickers: [],
       repeatClickersNote: 'Visible to administrators only for coaching.',
       topRiskyDepartment: pickTopRiskyDepartment(departments),
       trend,

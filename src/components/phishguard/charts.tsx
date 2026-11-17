@@ -1,6 +1,6 @@
 "use client";
 
-// PhishGuard — recharts wrappers with a consistent dark "security console" style.
+// PhishGuard · recharts wrappers with a consistent dark "security console" style.
 
 import { format } from "date-fns";
 import {
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import type { DepartmentStats, TimeToReportBucket, TrendPoint } from "./api";
 import { resilienceLabel } from "./shared";
 
-/* Palette: zinc / emerald / red / teal / amber — no blues or indigos. */
+/* Palette: zinc / emerald / red / teal / amber · no blues or indigos. */
 export const CHART_COLORS = {
   delivered: "#a1a1aa", // zinc-400
   opens: "#10b981", // emerald-500

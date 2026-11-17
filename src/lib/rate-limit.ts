@@ -31,6 +31,7 @@ export function checkRateLimit(
     }
   }
 
+  if (!buckets.has(key) && buckets.size >= 4096) return { allowed: false, remaining: 0, retryAfterSec: Math.max(1, Math.ceil(windowMs / 1000)) }
   const existing = buckets.get(key)
   if (!existing || existing.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs })
@@ -48,12 +49,7 @@ export function checkRateLimit(
 
 /** Best-effort client IP from proxy headers (x-forwarded-for first). */
 export function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) {
-    const first = forwarded.split(',')[0]?.trim()
-    if (first) return first
-  }
-  return request.headers.get('x-real-ip')?.trim() || 'unknown'
+  return 'single-instance' // Shared demo quota; untrusted forwarding headers cannot bypass it.
 }
 
 /** 429 response with a Retry-After header. */
