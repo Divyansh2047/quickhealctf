@@ -1,9 +1,10 @@
+import { adminSessionSubject, currentAdminHash } from '@/lib/admin-credentials'
 import { validRequestOrigin } from '@/lib/request-origin'
 import { NextRequest, NextResponse } from 'next/server'
 import { COOKIE, verifyToken } from '@/lib/session'
 const PUBLIC = new Set(['/api/auth/login', '/api/auth/accept', '/api/auth/session'])
 const PARTICIPANT = new Set(['/api/auth/logout','/api/consent','/api/participants','/api/inbox','/api/track','/api/training','/api/training/complete','/api/training/assessment','/api/ai/coach'])
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname
   if (!['GET','HEAD','OPTIONS'].includes(request.method)) {
     const origin = request.headers.get('origin')
@@ -16,6 +17,7 @@ export function proxy(request: NextRequest) {
   if (!PUBLIC.has(path)) {
     const session = verifyToken(request.cookies.get(COOKIE)?.value ?? '')
     if (!session) return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 })
+    if (session.role === 'admin' && session.sub !== adminSessionSubject(await currentAdminHash())) return NextResponse.json({ error: 'Session expired. Sign in again.' }, { status: 401 })
     if (session.role === 'participant' && (!PARTICIPANT.has(path) || (path === '/api/participants' && request.method !== 'GET'))) return NextResponse.json({ error: 'Administrator access required' }, { status: 403 })
   }
   const response = NextResponse.next()

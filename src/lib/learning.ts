@@ -14,7 +14,18 @@ export function questionsFor(title: string, phase: 'baseline' | 'followup'): Que
  else if (/Executive/.test(title)) specific = phase === 'baseline' ? { question: 'A CEO asks for an urgent confidential payment to new bank details. What is missing?', options: ['Independent verification and normal approval', 'A more professional signature', 'A faster transfer'], answer: 0, explanation: 'Authority and secrecy do not replace financial verification.' } : { question: 'A vendor sends changed payment details from a familiar-looking address. What should you do?', options: ['Approve because it looks familiar', 'Call a previously verified contact using a known number', 'Call the number in the message'], answer: 1, explanation: 'Verify payment changes using contact information obtained independently.' };
  else if (/Link/.test(title)) specific = phase === 'baseline' ? { question: 'A link label says “Company Portal”. What does that prove?', options: ['The destination is trusted', 'The page is safe if it uses HTTPS', 'Neither the destination nor its legitimacy'], answer: 2, explanation: 'A label can conceal a different destination, and HTTPS alone does not establish legitimacy.' } : { question: 'Which action avoids relying on a disguised email link?', options: ['Open a saved, verified bookmark', 'Use the link if it has a padlock', 'Use the link if the button is green'], answer: 0, explanation: 'A verified bookmark avoids the message-supplied destination.' };
  else specific = phase === 'baseline' ? { question: 'Which is a useful warning sign?', options: ['A familiar display name', 'A request to bypass normal checks under time pressure', 'An email arriving during work hours'], answer: 1, explanation: 'Unexpected requests to bypass procedures deserve independent verification.' } : { question: 'A message uses the right name and logo but asks for an unusual action. What matters most?', options: ['The logo quality', 'Whether the sender sounds senior', 'Whether the request can be independently verified'], answer: 2, explanation: 'Personalization and branding can be copied. Verify unusual requests.' };
- return [common, specific];
+ const applied: Question = phase === 'baseline' ? {
+  question: 'What should you include when reporting a suspicious message?',
+  options: ['A short description and the original message through the approved process', 'Your login details so someone can reproduce it', 'A guess about who sent it as a confirmed fact'],
+  answer: 0,
+  explanation: 'Give the review team the original context and describe what you observed without sharing secrets.'
+ } : {
+  question: 'A colleague says they entered their password into a page reached from a suspicious message. What is the next step?',
+  options: ['Wait until unauthorized activity appears', 'Ask them to send you the password to check it', 'Report the exposure and change the password through the official service'],
+  answer: 2,
+  explanation: 'Report quickly and follow your organization’s account recovery process through trusted channels.'
+ };
+ return [common, specific, applied];
 }
 export function recommendModule(category: string, titles: string[]) {
  const preferred = /CEO|Executive|Invoice|BEC/i.test(category) ? 'Executive Impersonation & BEC' : /Credential|Password/i.test(category) ? 'Safe Link Hygiene' : 'Urgency & Pressure Tactics';

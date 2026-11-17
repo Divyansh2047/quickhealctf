@@ -6,7 +6,8 @@ import { seedDemo } from './seed'
 async function installTraining() {
   for (const entry of trainingCatalog) {
     const id = `training-catalog-${entry.id}`;
-    const draft = makeTrainingDraft(entry, 'medium');
+    const difficulty = entry.id === 'qr-notice' ? 'easy' : entry.id === 'app-access' ? 'hard' : 'medium';
+    const draft = makeTrainingDraft(entry, difficulty);
     await db.template.upsert({
       where: { id },
       update: {},

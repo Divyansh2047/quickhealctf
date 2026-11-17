@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { getSession } from '@/lib/session'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -73,6 +74,18 @@ const FALLBACK_HEADLINES: Record<string, string> = {
   report: 'Excellent instincts · that report was spot on',
 }
 
+function variedQuiz(payload: CoachPayload) {
+  const quiz = payload.coach.microQuiz
+  const choices = quiz.options.map((label, index) => ({ label, correct: index === quiz.answerIndex }))
+  for (let index = choices.length - 1; index > 0; index--) {
+    const other = randomInt(index + 1)
+    ;[choices[index], choices[other]] = [choices[other], choices[index]]
+  }
+  return { ...payload, coach: { ...payload.coach, microQuiz: {
+    ...quiz, options: choices.map(choice => choice.label), answerIndex: choices.findIndex(choice => choice.correct),
+  } } }
+}
+
 function buildFallbackCoach(
   action: string,
   template: { landingMessage: string; redFlags: string }
@@ -128,7 +141,7 @@ export async function POST(request: Request) {
     const cacheKey = `${templateId}:${action}`
     const cached = coachCache.get(cacheKey)
     if (cached) {
-      return NextResponse.json({ ...cached, cached: true })
+      return NextResponse.json({ ...variedQuiz(cached), cached: true })
     }
 
     const redFlags = parseJsonArray(template.redFlags)
@@ -195,10 +208,10 @@ export async function POST(request: Request) {
         `Coaching generated for action "${action}" using template "${template.name}"`
       ).catch(() => undefined)
 
-      return NextResponse.json(payload)
+      return NextResponse.json(variedQuiz(payload))
     } catch (aiError) {
       console.error('AI coach fell back:', aiError)
-      return NextResponse.json(buildFallbackCoach(action, template))
+      return NextResponse.json(variedQuiz(buildFallbackCoach(action, template)))
     }
   } catch (error) {
     console.error('POST /api/ai/coach failed:', error)

@@ -15,6 +15,6 @@ try{
  run(['--import','tsx','scripts/install-training.ts'])
  run(['--import','tsx','scripts/install-training.ts'])
  const args=['node_modules/@playwright/test/cli.js','test']
- if(!process.argv.includes('--browser'))args.push('--grep','authorization|retention|domain|Studio')
+ if(!process.argv.includes('--browser'))args.push('--grep','authorization|retention|domain|Studio|password rotation')
  run(args)
 }catch(e){console.error(e.message);process.exitCode=1}finally{rmSync(root,{recursive:true,force:true})}

@@ -1,3 +1,4 @@
+import { questionsFor } from '../../src/lib/learning'
 import { test, expect, request as requestFactory } from '@playwright/test'
 const base = 'http://localhost:3000'
 const password = process.env.TEST_ADMIN_PASSWORD || ''
@@ -41,10 +42,17 @@ test('authorization, safe tracking, consent, learning and privacy boundaries', a
  const lesson=training.modules.find((m:any)=>m.title==='Safe Link Hygiene')
  expect((await learner.post('/api/training/assessment',{data:{participantId:other.id,moduleId:lesson.id,phase:'baseline'}})).status()).toBe(403)
  expect((await learner.post('/api/training/assessment',{data:{participantId:own.id,moduleId:lesson.id,phase:'followup',answers:[0,0]}})).status()).toBe(409)
- const quiz=await (await learner.post('/api/training/assessment',{data:{participantId:own.id,moduleId:lesson.id,phase:'baseline'}})).json()
- expect(quiz.questions[0].answer).toBeUndefined()
- expect((await learner.post('/api/training/assessment',{data:{participantId:own.id,moduleId:lesson.id,phase:'baseline',answers:[0,0]}})).ok()).toBeTruthy()
- const after=await (await learner.post('/api/training/assessment',{data:{participantId:own.id,moduleId:lesson.id,phase:'followup',answers:[0,0]}})).json()
+ const assess = async (phase: 'baseline' | 'followup') => {
+  const data = { participantId: own.id, moduleId: lesson.id, phase };
+  const quiz = await (await learner.post('/api/training/assessment', { data })).json();
+  expect(quiz.questions.every((q: { answer?: number }) => q.answer === undefined)).toBe(true);
+  const expected = questionsFor(lesson.title, phase);
+  const answers = quiz.questions.map((q: { options: string[] }, i: number) =>
+   q.options.indexOf(expected[i].options[expected[i].answer]));
+  return await learner.post('/api/training/assessment', { data: { ...data, quizId: quiz.quizId, answers } });
+ };
+ expect((await assess('baseline')).ok()).toBeTruthy()
+ const after=await (await assess('followup')).json()
  expect(after.passed).toBe(true)
  expect((await (await learner.get('/api/training')).json()).completions.some((c:any)=>c.moduleId===lesson.id)).toBeTruthy()
  const report=(await (await request.get('/api/analytics/report')).json()).report
@@ -151,7 +159,7 @@ test('retention removes expired interaction timestamps and events together',asyn
 test('Studio installs unique presets and screens suspicious messages locally', async ({ request }) => {
  expect((await request.post('/api/auth/login', { headers, data: { password } })).ok()).toBeTruthy()
  const { templates } = await (await request.get('/api/templates')).json()
- expect(templates.filter((template: {id:string}) => template.id.startsWith('training-catalog-'))).toHaveLength(6)
+ expect(templates.filter((template: {id:string}) => template.id.startsWith('training-catalog-'))).toHaveLength(9)
  const subjects = new Set()
  for (const scenario of ['Lottery notice', 'Summer vacation tickets', 'Coworker impersonation']) {
   const response = await request.post('/api/ai/template', { headers, data: { scenario, difficulty: 'medium' } })
@@ -170,3 +178,20 @@ test('Studio installs unique presets and screens suspicious messages locally', a
  expect(analysis.flags.map((flag:{title:string})=>flag.title)).toContain('Reply address domain differs')
  expect(analysis.riskScore).toBeGreaterThan(50)
 })
+
+test('administrator password rotation invalidates old sessions and credentials', async ({ request }) => {
+ const previousSession = await requestFactory.newContext({ baseURL: base });
+ const replacement = 'unique-test-passphrase-rotation';
+ try {
+  expect((await request.post('/api/auth/login', { headers, data: { password } })).ok()).toBeTruthy();
+  expect((await previousSession.post('/api/auth/login', { headers, data: { password } })).ok()).toBeTruthy();
+  expect((await request.post('/api/auth/password', { headers, data: { current: 'wrong', replacement } })).status()).toBe(401);
+  expect((await request.post('/api/auth/password', { headers, data: { current: password, replacement } })).ok()).toBeTruthy();
+  expect((await previousSession.get('/api/templates')).status()).toBe(401);
+  expect((await request.get('/api/templates')).ok()).toBeTruthy();
+  expect((await previousSession.post('/api/auth/login', { headers, data: { password } })).status()).toBe(401);
+  expect((await previousSession.post('/api/auth/login', { headers, data: { password: replacement } })).ok()).toBeTruthy();
+ } finally {
+  await previousSession.dispose();
+ }
+});

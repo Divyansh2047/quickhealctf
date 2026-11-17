@@ -18,7 +18,7 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in with the passphrase you chose. Setup accepts 12 to 256 characters. The terminal displays your input while you type it.
 
-The Windows launcher restores the original demo (12 fictional participants, seven detailed templates, four campaigns, and five lessons) alongside the six newer templates. Existing participants, consent, templates and campaign activity are preserved. On macOS or Linux, use `npm run demo:install` after `npm run db:push` for the same data. Use `npm run templates:install` to install just the six newer templates. To reset a disposable workspace to its original fictional data, stop the app and run the following **only against a disposable demo database**.
+The Windows launcher restores the original demo (12 fictional participants, seven detailed templates, four campaigns, and five lessons) alongside the nine newer templates. Existing participants, consent, templates and campaign activity are preserved. On macOS or Linux, use `npm run demo:install` after `npm run db:push` for the same data. Use `npm run templates:install` to install just the nine newer templates. To reset a disposable workspace to its original fictional data, stop the app and run the following **only against a disposable demo database**.
 
 ```sh
 npm run demo:reset
@@ -76,3 +76,5 @@ npm run build
 ```
 
 The API test command starts a local server against a temporary SQLite database. Stop your development server first so port 3000 is free. For the browser suite, install Playwright Chromium with `npx playwright install chromium`, then run `npm run verify:browser`. See the [demo runbook](docs/DEMO_RUNBOOK.md) for a walkthrough and the [sample report](docs/SAMPLE_AWARENESS_REPORT.md) for an example deliverable.
+
+For hosted deployment, see [Vercel and Neon setup](docs/VERCEL.md).

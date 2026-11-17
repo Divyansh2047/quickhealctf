@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual, randomBytes, scryptSync } from 'node:crypto'
+import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
 
 export const COOKIE = 'phishguard_session'
@@ -29,12 +29,5 @@ export function issueSession(role: Session['role'], sub: string) {
 }
 export function sessionCookie(value: string) {
   return { name: COOKIE, value, httpOnly: true, sameSite: 'strict' as const, secure: process.env.COOKIE_SECURE === 'true', path: '/', maxAge: 8 * 3600 }
-}
-export function verifyAdminPassword(value: string) {
-  const [salt, hash] = (process.env.ADMIN_PASSWORD_HASH ?? '').split(':')
-  if (!salt || !hash || value.length > 256) return false
-  const expected = Buffer.from(hash, 'hex')
-  const actual = scryptSync(value, salt, 64)
-  return expected.length === actual.length && timingSafeEqual(expected, actual)
 }
 export function invitationToken(sub: string) { return signToken({ role: 'participant', sub, purpose: 'invite', nonce: randomBytes(24).toString('hex'), exp: Date.now() + 24 * 3600_000 }) }
