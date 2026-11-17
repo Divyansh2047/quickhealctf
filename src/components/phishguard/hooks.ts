@@ -157,10 +157,13 @@ export function useLiveFeed(): {
     if (typeof window === "undefined") return; // SSR guard
 
     // Connect to the websocket (live feed) service.
-    // Never use PORT in the URL, always use XTransformPort.
-    // DO NOT change the path — it is used by Caddy to forward the request
-    // to the correct port.
-    const socketInstance: Socket = io("/?XTransformPort=3003", {
+    // Sandbox/gateway deployments: keep the default — the gateway routes
+    // `/?XTransformPort=3003` to the feed service. Bare-metal local runs
+    // (e.g. localhost without a gateway) set NEXT_PUBLIC_SOCKET_URL to the
+    // feed origin instead, e.g. NEXT_PUBLIC_SOCKET_URL=http://localhost:3003
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL ?? "/?XTransformPort=3003";
+    const socketInstance: Socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       forceNew: true,
       reconnection: true,
