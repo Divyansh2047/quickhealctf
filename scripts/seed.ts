@@ -56,7 +56,7 @@ export async function seedDemo(db: Prisma.TransactionClient, merge: boolean) {
     await db.template.deleteMany()
     await db.participant.deleteMany()
     await db.allowedDomain.deleteMany()
-    await db.setting.deleteMany()
+    await db.setting.deleteMany({ where: { key: { not: 'adminPasswordHash' } } })
   }
 
   // ---------------- Settings ----------------

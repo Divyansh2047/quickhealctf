@@ -20,7 +20,9 @@
     "verify:api": "node scripts/verify.mjs",
     "verify:browser": "node scripts/verify.mjs --browser",
     "templates:install": "node --env-file=.env --import tsx scripts/install-training.ts",
-    "demo:install": "npm run templates:install -- --with-demo"
+    "demo:install": "npm run templates:install -- --with-demo",
+    "build:vercel": "prisma generate --schema prisma/schema.postgres.prisma && next build",
+    "db:vercel:init": "node scripts/init-postgres.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",

@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ShieldCheck, ArrowRight, LockKeyhole, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { api, apiErrorMessage } from './api';
 export type Identity = { role: 'admin' | 'participant'; name: string; participantId?: string; consented?: boolean };
@@ -50,5 +51,39 @@ export function SessionGate({ children }: { children: ReactNode }) {
 export function SessionBar() {
  const who = useIdentity();
  const exit = async (withdraw = false) => { await api(withdraw ? '/api/consent' : '/api/auth/logout', { method: 'POST', body: '{}' }); window.location.reload(); };
- return <div className="no-print flex flex-wrap items-center justify-between gap-2 border-b border-sky-900/50 bg-sky-950/30 px-4 py-2 text-xs"><span>{who.role === 'admin' ? 'Administrator · controlled test environment' : `Participant · ${who.name}`}</span><div className="flex gap-3">{who.role === 'participant' && <button onClick={() => { if (confirm('Withdraw consent? Further simulation interactions will stop immediately.')) void exit(true); }} className="text-amber-300">Withdraw consent</button>}<button onClick={() => void exit()} className="text-sky-300">Sign out</button></div></div>
+ return <div className="no-print flex flex-wrap items-center justify-between gap-2 border-b border-sky-900/50 bg-sky-950/30 px-4 py-2 text-xs"><span>{who.role === 'admin' ? 'Administrator · controlled test environment' : `Participant · ${who.name}`}</span><div className="flex gap-3">{who.role === 'admin' && <ChangePassphrase/>}{who.role === 'participant' && <button onClick={() => { if (confirm('Withdraw consent? Further simulation interactions will stop immediately.')) void exit(true); }} className="text-amber-300">Withdraw consent</button>}<button onClick={() => void exit()} className="text-sky-300">Sign out</button></div></div>
+}
+
+function ChangePassphrase() {
+ const [open, setOpen] = useState(false);
+ const [busy, setBusy] = useState(false);
+ const [message, setMessage] = useState('');
+ return <Dialog open={open} onOpenChange={next => { if (!busy) { setMessage(''); setOpen(next); } }}>
+  <DialogTrigger asChild><button type="button" className="text-sky-300">Change passphrase</button></DialogTrigger>
+  <DialogContent>
+   <DialogHeader>
+    <DialogTitle>Change administrator passphrase</DialogTitle>
+    <DialogDescription>Use a new passphrase of at least 12 characters. Other administrator sessions will be signed out.</DialogDescription>
+   </DialogHeader>
+   <form className="space-y-4" onSubmit={async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    if (fields.get('replacement') !== fields.get('confirmation')) { setMessage('The new passphrases do not match.'); return; }
+    setBusy(true); setMessage('');
+    try {
+     await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ current: fields.get('current'), replacement: fields.get('replacement') }) });
+     form.reset();
+     setMessage('Passphrase changed.');
+    } catch (error) { setMessage(apiErrorMessage(error)); }
+    finally { setBusy(false); }
+   }}>
+    <label className="block space-y-1 text-sm"><span>Current passphrase</span><Input name="current" type="password" autoComplete="current-password" required maxLength={256}/></label>
+    <label className="block space-y-1 text-sm"><span>New passphrase</span><Input name="replacement" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>
+    <label className="block space-y-1 text-sm"><span>Confirm new passphrase</span><Input name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>
+    {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
+    <Button disabled={busy}>{busy ? 'Saving…' : 'Save passphrase'}</Button>
+   </form>
+  </DialogContent>
+ </Dialog>;
 }
