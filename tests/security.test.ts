@@ -51,11 +51,11 @@ test('server-side quiz ordering varies positions and preserves the answer key', 
  assert.deepEqual(orders[0], orderAssessment(questions, scope, '0'));
 });
 
-test('the ten core templates have distinct decisions and landing titles', async () => {
+test('the eleven core templates have distinct decisions and landing titles', async () => {
  const { trainingCatalog } = await import('../src/lib/training-catalog');
  const { catalogExercises } = await import('../src/lib/catalog-exercises');
- assert.equal(trainingCatalog.length, 10);
+ assert.equal(trainingCatalog.length, 11);
  const exercises = trainingCatalog.map(template => catalogExercises[template.id]);
- assert.equal(new Set(exercises.map(exercise => exercise.heading)).size, 10);
- assert.equal(new Set(exercises.map(exercise => exercise.action)).size, 10);
+ assert.equal(new Set(exercises.map(exercise => exercise.heading)).size, 11);
+ assert.equal(new Set(exercises.map(exercise => exercise.action)).size, 11);
 });

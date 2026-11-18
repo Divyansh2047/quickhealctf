@@ -15,6 +15,15 @@ async function installTraining() {
       update: {},
       create: { ...draft, id, isBuiltIn: true, redFlags: JSON.stringify(draft.redFlags) },
     });
+    const refreshed = {
+      subject: draft.subject,
+      bodyHtml: draft.bodyHtml,
+    };
+    // Retire the old stock copy in place. References from existing campaigns stay valid.
+    await db.template.updateMany({
+      where: { id, isBuiltIn: true, subject: `Training exercise: ${entry.name}`, bodyHtml: { contains: 'Internal awareness exercise' } },
+      data: refreshed,
+    });
   }
   console.log(`Training catalog ready (${trainingCatalog.length} built-in templates).`);
   if (process.argv.includes('--with-demo')) {

@@ -1,6 +1,8 @@
 type Exercise =
   | { kind: 'choice'; heading: string; action: string; details: string[]; label: string; options: string[] }
   | { kind: 'checklist'; heading: string; action: string; details: string[]; checks: string[] }
+  | { kind: 'download'; heading: string; action: string; details: string[]; filename: string }
+  | { kind: 'recovery'; heading: string; action: string; details: string[]; prompt: string; fictionalAnswer: string }
   | { kind: 'review'; heading: string; action: string; details: string[]; reveal: string; evidence: string };
 
 export const catalogExercises: Record<string, Exercise> = {
@@ -25,9 +27,12 @@ export const catalogExercises: Record<string, Exercise> = {
     checks: ['I reviewed the fictional supplier record', 'I acknowledge the payment destination changed'],
   },
   document: {
-    kind: 'review', heading: 'Attachment download preview', action: 'Simulate downloading the attachment',
-    details: ['File: demo-document.txt', 'Handling: preview only'],
-    reveal: 'Inspect attachment details', evidence: 'Unverified sender. The simulated download records a decision; no file transfers or executes.',
+    kind: 'download', heading: 'Unexpected shared-file attachment', action: 'Download practice attachment',
+    details: ['Share: unexpected access to an example document', 'File type: plain text'], filename: 'demo.txt',
+  },
+  'payroll-file': {
+    kind: 'download', heading: 'Unplanned payroll file share', action: 'Download practice payroll attachment',
+    details: ['Share: example payroll worksheet', 'Payload: harmless plain text without payroll data'], filename: 'demo.txt',
   },
   account: {
     kind: 'choice', heading: 'Practice sign-in screen', action: 'Simulate signing in',
@@ -50,8 +55,8 @@ export const catalogExercises: Record<string, Exercise> = {
     checks: ['I reviewed the read permission', 'I reviewed the manage permission'],
   },
   recovery: {
-    kind: 'review', heading: 'Recovery question review', action: 'Simulate continuing with recovery',
-    details: ['Support case: fictional', 'Prompt expects personal history'],
-    reveal: 'Read the example prompts', evidence: 'Example prompts ask for a childhood street or a pet’s name. These are examples to identify. There are no answer fields.',
+    kind: 'recovery', heading: 'Account recovery practice', action: 'Submit practice recovery answer',
+    details: ['Support case: fictional', 'Use only the answer on the case card below'],
+    prompt: 'What was the demo account’s assigned practice team?', fictionalAnswer: 'Lunar Robotics',
   },
 };

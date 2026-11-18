@@ -161,7 +161,12 @@ test('retention removes expired interaction timestamps and events together',asyn
 test('Studio installs unique presets and screens suspicious messages locally', async ({ request }) => {
  expect((await request.post('/api/auth/login', { headers, data: { password } })).ok()).toBeTruthy()
  const { templates } = await (await request.get('/api/templates')).json()
- expect(templates.filter((template: {id:string}) => template.id.startsWith('training-catalog-'))).toHaveLength(10)
+ expect(templates.filter((template: {id:string}) => template.id.startsWith('training-catalog-'))).toHaveLength(11)
+ const attachment = await request.get('/training/demo.txt')
+ expect(attachment.ok()).toBeTruthy()
+ expect(attachment.headers()['content-type']).toContain('text/plain')
+ expect(await attachment.text()).toContain('no payroll records')
+
  const subjects = new Set()
  for (const scenario of ['Lottery notice', 'Summer vacation tickets', 'Coworker impersonation']) {
   const response = await request.post('/api/ai/template', { headers, data: { scenario, difficulty: 'medium' } })

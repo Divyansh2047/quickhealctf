@@ -3,6 +3,7 @@
 // PhishGuard · Templates: library of simulated phishing emails with previews,
 // red flags, teaching moments, and a full editor (create / edit / delete).
 
+import { presentCatalogTemplate } from "@/lib/training-catalog";
 import { useState } from "react";
 import {
   Eye,
@@ -54,7 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError, apiErrorMessage } from "../api";
 import type { Difficulty, PhishTemplate, TemplatePayload } from "../api";
 import { useTemplates } from "../hooks";
-import { DifficultyBadge, EmptyState, ErrorState, SectionTitle } from "../shared";
+import { DifficultyBadge, EmptyState, ErrorState, SectionTitle, SimulatedEmailBody } from "../shared";
 
 const BODY_SHELL = `<div style="font-family: sans-serif; max-width: 540px; line-height: 1.5;">
   <p>Hi,</p>
@@ -143,7 +144,7 @@ export default function TemplatesView() {
                 ) : null}
               </div>
               <h3 className="mt-2 text-sm font-semibold">{t.name}</h3>
-              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{t.subject}</p>
+              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{presentCatalogTemplate(t).subject}</p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
                 {t.senderName} &lt;{t.senderEmail}&gt;
               </p>
@@ -226,7 +227,7 @@ function TemplateDetailDialog({
                 ) : null}
               </div>
               <DialogDescription id="tpl-detail-desc">
-                Subject: <span className="font-medium text-foreground">{template.subject}</span>
+                Subject: <span className="font-medium text-foreground">{presentCatalogTemplate(template).subject}</span>
                 <br />
                 From {template.senderName} &lt;
                 <span className="font-mono">{template.senderEmail}</span>&gt;
@@ -241,11 +242,10 @@ function TemplateDetailDialog({
               </TabsList>
 
               <TabsContent value="preview" className="mt-3">
-                {/* Rendered inside an inert sandbox: links can't navigate. */}
-                <div
-                  aria-label="Simulated email body preview"
-                  className="rounded-md border bg-white p-4 text-slate-900 [&_a]:pointer-events-none [&_a]:underline"
-                  dangerouslySetInnerHTML={{ __html: template.bodyHtml }}
+                <SimulatedEmailBody
+                  bodyHtml={presentCatalogTemplate(template).bodyHtml}
+                  label="Simulated email body preview"
+                  inert
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
                   Preview is inert · links cannot be followed from here.

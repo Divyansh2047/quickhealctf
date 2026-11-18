@@ -1,6 +1,7 @@
 "use client";
 
-import { presentCatalogTemplate } from "@/lib/training-catalog";
+import { catalogExercises } from "@/lib/catalog-exercises";
+import { findCatalogExercise, presentCatalogTemplate } from "@/lib/training-catalog";
 
 // Controlled landing decisions are recorded without accepting user-entered data.
 
@@ -220,12 +221,15 @@ export default function TestInboxView({
   };
 
   /** Stage 4: confirm a fictional request; only the decision is recorded. */
+  const openedCatalogExercise = fakeItem && findCatalogExercise(fakeItem.template.subject);
+  const openedExercise = openedCatalogExercise && catalogExercises[openedCatalogExercise.id];
+
   const submitFake = async () => {
-    if (!fakeItem || actionLock.current) return;
+    if (!fakeItem || actionLock.current) return false;
     actionLock.current = true; setActionBusy(true);
     const recorded = await doTrack(fakeItem.enrollmentId, "SUBMITTED");
     actionLock.current = false; setActionBusy(false);
-    if (!recorded) return;
+    if (!recorded) return false;
 
 
     setFakeStage("result");
@@ -233,6 +237,7 @@ export default function TestInboxView({
 
     void refresh();
     void loadCoach(fakeItem, "submit");
+    return true;
   };
 
   /** Closing is navigation only: no outcome, submission or report is recorded. */
@@ -572,6 +577,11 @@ export default function TestInboxView({
                       <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-red-200/70">
                         You opened the link and confirmed the request. Only those actions were recorded. Reporting is closed for this exercise. In a real attack, a similar request could lead to credential theft or an unauthorized action.
                       </p>
+                      {openedExercise?.kind === "download" && (
+                        <a className="mt-3 inline-block text-sm text-sky-300 underline" href="/training/demo.txt" download="demo.txt">
+                          Download demo.txt again
+                        </a>
+                      )}
                     </div>
                   ) : (
                     <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center">

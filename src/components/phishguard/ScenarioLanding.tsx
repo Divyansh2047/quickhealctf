@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from 'react';
 import { FileText, Package, ShieldCheck, ArrowRight, LockKeyhole, Receipt, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { findCatalogExercise } from "@/lib/training-catalog";
@@ -9,8 +10,9 @@ import type { InboxItem } from './api';
 
 /** Practice scenarios accept fixed fictional choices and record only the decision. */
 export function ScenarioLanding({item,busy,onSubmit,onReport,onExit}: {
- item: InboxItem; busy:boolean; onSubmit:()=>Promise<void>; onReport:()=>Promise<void>; onExit:()=>void;
+ item: InboxItem; busy:boolean; onSubmit:()=>Promise<boolean>; onReport:()=>Promise<void>; onExit:()=>void;
 }) {
+ const [recoveryError, setRecoveryError] = useState(false);
  const scenario=scenarioFor(item.template);
  const finance=scenario.kind==='invoice'||scenario.kind==='executive';
  const document=scenario.kind==='document'||scenario.kind==='esign';
@@ -26,7 +28,27 @@ export function ScenarioLanding({item,busy,onSubmit,onReport,onExit}: {
      <div className="my-5 grid gap-2 sm:grid-cols-2">
        {decision.details.map(detail => <div key={detail} className="rounded-lg border p-3 text-sm">{detail}</div>)}
      </div>
-     <form onSubmit={event => { event.preventDefault(); void onSubmit(); }}>
+     <form onSubmit={async event => {
+       event.preventDefault();
+       const form = event.currentTarget;
+       if (decision.kind === 'recovery') {
+         const value = form.querySelector<HTMLInputElement>('[data-practice-answer]')?.value.trim();
+         if (value !== decision.fictionalAnswer) {
+           setRecoveryError(true);
+           return;
+         }
+       }
+       form.reset();
+       setRecoveryError(false);
+       if (await onSubmit() && decision.kind === 'download') {
+         const link = window.document.createElement('a');
+         link.href = '/training/demo.txt';
+         link.download = decision.filename;
+         window.document.body.appendChild(link);
+         link.click();
+         link.remove();
+       }
+     }}>
        <fieldset disabled={busy} className="space-y-3">
          {decision.kind === 'choice' && <label className="block max-w-sm text-sm">{decision.label}
            <select className="mt-2 block w-full rounded-md border bg-background p-2" required defaultValue="">
@@ -36,6 +58,12 @@ export function ScenarioLanding({item,busy,onSubmit,onReport,onExit}: {
          </label>}
          {decision.kind === 'checklist' && decision.checks.map(check =>
            <label key={check} className="flex items-center gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" required/>{check}</label>)}
+         {decision.kind === 'recovery' && <div className="space-y-3 rounded-lg border p-4">
+           <p className="text-sm">Fictional case card answer: <strong>{decision.fictionalAnswer}</strong>. Do not enter personal information.</p>
+           <label className="block text-sm">{decision.prompt}<input data-practice-answer type="text" autoComplete="off" maxLength={40} required className="mt-2 block w-full rounded-md border bg-background p-2"/></label>
+           {recoveryError && <p role="alert" className="text-sm text-amber-300">Type the answer shown on the fictional case card.</p>}
+         </div>}
+         {decision.kind === 'download' && <p className="text-sm text-muted-foreground">The exercise provides only <code>{decision.filename}</code>, a harmless training note.</p>}
          {decision.kind === 'review' && <details className="rounded-lg border p-3 text-sm">
            <summary className="cursor-pointer font-medium">{decision.reveal}</summary>
            <p className="mt-2 text-muted-foreground">{decision.evidence}</p>
