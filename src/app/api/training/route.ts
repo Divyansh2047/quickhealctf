@@ -1,3 +1,4 @@
+import { installModules } from '@/lib/training-modules'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/session'
@@ -7,8 +8,10 @@ import { purgeExpired } from '@/lib/retention'
 export async function GET() {
  await purgeExpired()
  const s = await getSession()
+ if (!s) return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 })
  const scope = s?.role === 'participant' ? { participantId: s.sub } : {}
  if (s?.role === 'participant') { const p = await db.participant.findUnique({ where: { id: s.sub } }); if (!p?.active || !p.consented) return NextResponse.json({ error: 'Participation not authorized' }, { status: 403 }) }
+ await installModules(db)
  const [modules, completions, attempts, enrollments] = await Promise.all([
   db.trainingModule.findMany({ orderBy: { createdAt: 'asc' } }),
   db.trainingCompletion.findMany({ where: scope, include: { participant: true } }),

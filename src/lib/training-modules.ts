@@ -96,6 +96,7 @@ No links, no attachments · just a convincing "urgent, confidential" request fro
   ]
   for (const m of modules) {
     if (await db.trainingModule.findFirst({ where: { title: m.title } })) continue
-    await db.trainingModule.create({ data: { ...m, createdAt: new Date() } })
+    const id = 'core-' + m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')
+    await db.trainingModule.upsert({ where: { id }, update: { id }, create: { ...m, id } })
   }
 }

@@ -1,3 +1,5 @@
+import { casePresentation } from './catalog-cases'
+
 export const trainingCatalog = [
   { id: 'lottery', name: 'Lottery notice', category: 'Prize claims', overview: 'An unexpected prize notice asks for a fee before releasing the award.', clue: 'The recipient never entered the draw, and an advance fee is requested.', advice: 'Verify through the published lottery operator before taking any action.', keywords: /lottery|jackpot|prize|raffle/ },
   { id: 'holiday', name: 'Summer vacation tickets', category: 'Travel offers', overview: 'An unexpected vacation award asks the recipient to confirm a booking.', clue: 'The message claims a booking exists although the recipient made none.', advice: 'Open the travel provider independently to check whether the booking exists.', keywords: /vacation|holiday|ticket|travel/ },
@@ -12,21 +14,28 @@ export const trainingCatalog = [
 ];
 
 export function makeTrainingDraft(entry: typeof trainingCatalog[number], difficulty: 'easy' | 'medium' | 'hard') {
-  const exercises = {
-    easy: 'Identify the main warning sign.',
-    medium: 'Choose how you would independently verify this request.',
-    hard: 'Identify what evidence would establish whether the request is legitimate.',
-  };
+  const preview = casePresentation(entry.id);
   return {
     name: entry.name,
     category: entry.category,
     difficulty,
-    subject: `Training exercise: ${entry.name}`,
+    subject: preview?.subject ?? entry.name,
     senderName: 'PhishGuard Training',
     senderEmail: 'training@mail.securelab.test',
-    bodyHtml: `<h2>${entry.name}</h2><p>Internal awareness exercise</p><p>${entry.overview}</p><p>${exercises[difficulty]}</p><p><a href="#">Open exercise</a></p>`,
+    bodyHtml: preview?.bodyHtml ?? `<p>${entry.overview}</p>`,
     redFlags: [entry.clue],
     landingMessage: entry.advice,
     aiGenerated: false,
   };
+}
+
+
+export function findCatalogExercise(subject: string) {
+  return trainingCatalog.find(entry =>
+    subject === `Training exercise: ${entry.name}` || subject === casePresentation(entry.id)?.subject);
+}
+
+export function presentCatalogTemplate(template: { subject: string; bodyHtml: string }) {
+  const entry = findCatalogExercise(template.subject);
+  return (entry && casePresentation(entry.id)) ?? template;
 }

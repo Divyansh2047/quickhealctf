@@ -1,4 +1,5 @@
-import { installModules } from './training-modules'
+import { installOriginalTemplates } from './original-templates'
+import { installModules } from '../src/lib/training-modules'
 import { db } from '../src/lib/db'
 import { makeTrainingDraft, trainingCatalog } from '../src/lib/training-catalog'
 
@@ -20,6 +21,7 @@ async function installTraining() {
     await db.$transaction(tx => seedDemo(tx, true), { timeout: 15000 });
     console.log('Original demo catalog ready. Existing records were kept.');
   }
+  await db.$transaction(installOriginalTemplates, { timeout: 15000 });
   await db.$transaction(installModules);
   console.log('Core training lessons ready.');
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { presentCatalogTemplate } from "@/lib/training-catalog";
+
 // Controlled landing decisions are recorded without accepting user-entered data.
 
 import { ScenarioLanding } from "../ScenarioLanding";
@@ -395,7 +397,7 @@ export default function TestInboxView({
                             className="mr-1.5 inline-block size-1.5 rounded-full bg-emerald-400 align-middle"
                           />
                         ) : null}
-                        {item.template.subject}
+                        {presentCatalogTemplate(item.template).subject}
                       </p>
                       <div className="mt-1.5 flex items-center justify-between gap-2">
                         <Badge variant="secondary" className="max-w-32 truncate text-[9px]">
@@ -450,7 +452,7 @@ export default function TestInboxView({
                       </span>
                     </p>
                     <p className="mt-0.5 text-lg font-semibold leading-snug">
-                      {selected.template.subject}
+                      {presentCatalogTemplate(selected.template).subject}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{shortDateTime(selected.deliveredAt)}</span>
@@ -470,7 +472,7 @@ export default function TestInboxView({
 
                 {/* Body · clicks intercepted */}
                 <SimulatedEmailBody
-                  bodyHtml={selected.template.bodyHtml}
+                  bodyHtml={presentCatalogTemplate(selected.template).bodyHtml}
                   onLinkClick={handleBodyClickCapture}
                   label="Simulated email body (links are intercepted)"
                 />
