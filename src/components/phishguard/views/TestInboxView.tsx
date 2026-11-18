@@ -209,11 +209,11 @@ export default function TestInboxView({
     actionLock.current = false; setActionBusy(false);
     if (!recorded) return;
     setFakeItem(item);
-    const reported = stageFor(item).reported;
-    setFakeStage(reported ? "result" : "login");
-    setResultKind(reported ? "reported" : null);
+    const outcome = recorded.enrollment?.reportedAt ? "reported" : recorded.enrollment?.submittedAt ? "submitted" : null;
+    setFakeStage(outcome ? "result" : "login");
+    setResultKind(outcome);
     setFakeOpen(true);
-    if (reported) void loadCoach(item, "report");
+    if (outcome) void loadCoach(item, outcome === "reported" ? "report" : "submit");
     void refresh();
   };
 
@@ -250,8 +250,10 @@ export default function TestInboxView({
   };
 
   const reportPhish = async () => {
-    if (!selected) return;
+    if (!selected || stageFor(selected).submitted || actionLock.current) return;
+    actionLock.current = true; setActionBusy(true);
     const res = await doTrack(selected.enrollmentId, "REPORT");
+    actionLock.current = false; setActionBusy(false);
     if (!res) return;
 
     if (res.already) {
@@ -488,10 +490,10 @@ export default function TestInboxView({
                     <Button
                       variant="destructive"
                       onClick={() => void reportPhish()}
-                      disabled={stageFor(selected).reported}
+                      disabled={actionBusy || stageFor(selected).reported || stageFor(selected).submitted}
                     >
                       <FlagTriangleRight className="size-4" aria-hidden="true" />
-                      {stageFor(selected).reported ? "Reported" : "Report Phish"}
+                      {stageFor(selected).reported ? "Reported" : stageFor(selected).submitted ? "Outcome recorded" : "Report Phish"}
                     </Button>
                     <Button variant="outline" disabled={actionBusy} onClick={() => clickLink(selected)}>
                       <ExternalLink className="size-4" aria-hidden="true" />
@@ -566,7 +568,7 @@ export default function TestInboxView({
                         This was a phishing assessment
                       </p>
                       <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-red-200/70">
-                        You opened the link and confirmed the request. Only those actions were recorded; entered values were cleared locally and never sent. In a real attack, a similar request could lead to credential theft or an unauthorized action.
+                        You opened the link and confirmed the request. Only those actions were recorded. Reporting is closed for this exercise. In a real attack, a similar request could lead to credential theft or an unauthorized action.
                       </p>
                     </div>
                   ) : (

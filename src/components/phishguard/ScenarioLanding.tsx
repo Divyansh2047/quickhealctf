@@ -1,37 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
 import { FileText, Package, ShieldCheck, ArrowRight, LockKeyhole, Receipt, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trainingCatalog } from "@/lib/training-catalog";
+import { catalogExercises } from '@/lib/catalog-exercises';
 import { scenarioFor } from '@/lib/landing-scenarios';
 import type { InboxItem } from './api';
 
-/** Values exist only in uncontrolled DOM inputs. Never read, serialize or log them. */
+/** Practice scenarios accept fixed fictional choices and record only the decision. */
 export function ScenarioLanding({item,busy,onSubmit,onReport,onExit}: {
  item: InboxItem; busy:boolean; onSubmit:()=>Promise<void>; onReport:()=>Promise<void>; onExit:()=>void;
 }) {
  const scenario=scenarioFor(item.template);
- const formRef=useRef<HTMLFormElement>(null);
- const [reviewed,setReviewed]=useState(false);
- useEffect(()=>{const form=formRef.current;return()=>{form?.reset();};},[]);
- const clear=()=>formRef.current?.reset();
  const finance=scenario.kind==='invoice'||scenario.kind==='executive';
  const document=scenario.kind==='document'||scenario.kind==='esign';
  const Icon=scenario.kind==='parcel'?Package:finance?Building2:document?FileText:ShieldCheck;
  const field='mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100';
  const exercise = trainingCatalog.find(entry => item.template.subject === `Training exercise: ${entry.name}`);
- if (exercise) {
-   return <section className="min-h-0 flex-1 overflow-y-auto bg-card p-6 sm:p-10">
-     <p className="text-sm font-medium text-muted-foreground">Internal awareness exercise</p>
-     <h2 className="mt-2 text-2xl font-semibold">{exercise.name}</h2>
+ const decision = exercise && catalogExercises[exercise.id];
+ if (exercise && decision) {
+   return <section className="min-h-0 flex-1 overflow-y-auto bg-card p-6 sm:p-10" data-testid={`landing-${exercise.id}`}>
+     <p className="text-sm text-muted-foreground">Internal awareness exercise</p>
+     <h2 className="mt-2 text-2xl font-semibold">{decision.heading}</h2>
      <p className="mt-4 max-w-prose">{exercise.overview}</p>
-     <p className="mt-3 text-sm text-muted-foreground">Would you proceed with the request or report it for review?</p>
-     <div className="mt-6 flex flex-wrap gap-3">
-       <Button disabled={busy} onClick={() => void onSubmit()}>Proceed with request</Button>
-       <Button disabled={busy} variant="outline" onClick={() => void onReport()}>Report for review</Button>
-       <Button disabled={busy} variant="ghost" onClick={onExit}>Return to inbox</Button>
+     <div className="my-5 grid gap-2 sm:grid-cols-2">
+       {decision.details.map(detail => <div key={detail} className="rounded-lg border p-3 text-sm">{detail}</div>)}
      </div>
+     <form onSubmit={event => { event.preventDefault(); void onSubmit(); }}>
+       <fieldset disabled={busy} className="space-y-3">
+         {decision.kind === 'choice' && <label className="block max-w-sm text-sm">{decision.label}
+           <select className="mt-2 block w-full rounded-md border bg-background p-2" required defaultValue="">
+             <option value="" disabled>Choose an option</option>
+             {decision.options.map(option => <option key={option}>{option}</option>)}
+           </select>
+         </label>}
+         {decision.kind === 'checklist' && decision.checks.map(check =>
+           <label key={check} className="flex items-center gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" required/>{check}</label>)}
+         {decision.kind === 'review' && <details className="rounded-lg border p-3 text-sm">
+           <summary className="cursor-pointer font-medium">{decision.reveal}</summary>
+           <p className="mt-2 text-muted-foreground">{decision.evidence}</p>
+         </details>}
+         <div className="flex flex-wrap gap-3 pt-2">
+           <Button type="submit">{decision.action}</Button>
+           <Button type="button" variant="outline" onClick={() => void onReport()}>Report for review</Button>
+           <Button type="button" variant="ghost" onClick={onExit}>Return to inbox</Button>
+         </div>
+       </fieldset>
+     </form>
    </section>;
  }
  return <div className="flex min-h-0 flex-1 flex-col bg-slate-100 text-slate-900" data-testid={`landing-${scenario.kind}`}>
@@ -53,20 +68,24 @@ export function ScenarioLanding({item,busy,onSubmit,onReport,onExit}: {
         <div className="my-5 space-y-2" aria-hidden="true">{[1,2,3,4].map(n=><div key={n} className={`h-2 rounded bg-slate-200 ${n===4?'w-2/3':'w-full'}`}/>)}</div><p className="flex items-center gap-2 text-xs text-slate-500"><LockKeyhole className="size-3"/>Preview locked until verification</p>
       </div> : scenario.kind==='parcel' ? <ol className="mt-6 space-y-4 border-l-2 border-orange-200 pl-4 text-sm"><li><p className="font-medium">Dispatched</p><p className="text-xs text-slate-500">Regional sorting center</p></li><li><p className="font-medium">Delivery attempted</p><p className="text-xs text-slate-500">Recipient unavailable</p></li><li className="font-medium text-orange-700">Choose a new delivery window</li></ol> : <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm"><p className="font-medium">{scenario.kind==='payroll'?'Processing status: on hold':'Account status: action required'}</p><p className="mt-2 text-xs leading-5 text-slate-500">{scenario.kind==='payroll'?'Profile verification is required to resume processing.':'Workspace access may be interrupted until verification is complete.'}</p></div>}
      </section>
-     <form ref={formRef} autoComplete="off" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" onSubmit={e=>{e.preventDefault();clear();void onSubmit();}}>
+     <form className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" onSubmit={e=>{e.preventDefault();void onSubmit();}}>
       <h3 className="text-lg font-semibold">{scenario.kind==='parcel'?'Delivery preferences':finance?'Authorize request':document?'Verify to open':'Account verification'}</h3>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{scenario.kind==='parcel'?'Select a slot for the next delivery attempt.':'Use invented practice values. Never enter a real password.'}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{scenario.kind==='parcel'?'Select a slot for the next delivery attempt.':'Choose a demo identity. This exercise never asks for your credentials.'}</p>
       <fieldset disabled={busy} className="mt-5 space-y-4">
        {scenario.kind==='parcel' ? <><label className="block text-sm font-medium">Delivery window<select required defaultValue="" className={field}><option value="" disabled>Choose a window</option><option>Tomorrow, 9 AM – 12 PM</option><option>Tomorrow, 2 PM – 6 PM</option><option>Next working day, 9 AM – 12 PM</option></select></label><label className="block text-sm font-medium">Delivery option<select className={field}><option>Deliver to reception</option><option>Collect from depot</option></select></label></> : <>
-        <label className="block text-sm font-medium">Practice username<input type="text" required maxLength={120} autoComplete="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore className={field}/></label>
-        <label className="block text-sm font-medium">Practice password<input type="password" required maxLength={256} autoComplete="new-password" data-lpignore="true" data-1p-ignore className={field}/></label>
+        <label className="block text-sm font-medium">Practice identity
+          <select required defaultValue="" className={field}>
+            <option value="" disabled>Select a fictional identity</option>
+            <option>Demo learner</option><option>Demo reviewer</option>
+          </select>
+        </label>
        </>}
-       {(finance||scenario.kind==='esign')&&<label className="flex items-start gap-2 text-xs leading-5 text-slate-600"><input type="checkbox" required checked={reviewed} onChange={e=>setReviewed(e.target.checked)} className="mt-1"/>{finance?'I have reviewed the payment details and authorize this request.':'I agree to review and sign this document electronically.'}</label>}
+       {(finance||scenario.kind==='esign')&&<label className="flex items-start gap-2 text-xs leading-5 text-slate-600"><input type="checkbox" required className="mt-1"/>{finance?'I have reviewed the payment details and authorize this request.':'I agree to review and sign this document electronically.'}</label>}
        <button type="submit" className={`${scenario.accent} flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50`}>{busy?'Processing…':scenario.action}<ArrowRight className="size-4"/></button>
       </fieldset>
       <div className="mt-5 space-y-2 border-t border-slate-200 pt-4">
-       <Button type="button" variant="outline" disabled={busy} className="w-full border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900" onClick={()=>{clear();void onReport();}}>Report suspicious request</Button>
-       <button type="button" disabled={busy} className="w-full py-2 text-xs text-slate-500 hover:text-slate-900" onClick={()=>{clear();onExit();}}>Return to inbox</button>
+       <Button type="button" variant="outline" disabled={busy} className="w-full border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900" onClick={()=>void onReport()}>Report suspicious request</Button>
+       <button type="button" disabled={busy} className="w-full py-2 text-xs text-slate-500 hover:text-slate-900" onClick={onExit}>Return to inbox</button>
       </div>
      </form>
     </div>

@@ -20,3 +20,7 @@ This branch supports a separately provisioned Neon Postgres database. The local 
 6. Deploy and sign in at the exact origin configured above. Check the Templates and Training tabs. In the administrator bar, **Change passphrase** changes the stored hash and signs out other administrator sessions.
 
 Keep the Postgres connection strings, passphrase, hash, and session secret out of Git and chat. Do not use a default password or reuse credentials from another service. Use separate database and secrets for any Preview environment you enable. The browser demo uses fictional accounts and does not send real emails. The background retention timer is disabled on Vercel; routes that serve retained data or record interactions still run the retention check.
+
+## Refresh an existing hosted demo
+
+From the updated folder, use the direct Neon connection and rerun `npm run db:vercel:init`. The installer adds missing templates and core lessons even if the original demo marker already exists. Existing participants, consent and training progress are preserved. Deploy the updated folder again with `vercel --prod` to publish the new exercise screens and outcome rules.

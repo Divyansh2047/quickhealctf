@@ -16,6 +16,7 @@ export async function POST(request: Request) {
  try { return NextResponse.json(await trackInteraction(parsed.data.enrollmentId, parsed.data.type, s.role === 'participant' ? s.sub : undefined)) }
  catch (error) {
   const message = error instanceof Error ? error.message : ''
+  if (message === 'OUTCOME_LOCKED') return NextResponse.json({ error: 'This exercise already has a recorded outcome. Reporting and proceeding are separate outcomes.' }, { status: 409 })
   return NextResponse.json({ error: message === 'INACTIVE' ? 'Campaign stopped, authorization withdrawn or participation expired' : 'Interaction unavailable' }, { status: message === 'INACTIVE' ? 409 : 403 })
  }
 }
