@@ -31,12 +31,9 @@ export function makeTrainingDraft(entry: typeof trainingCatalog[number], difficu
 }
 
 
-export function findCatalogExercise(subject: string) {
+export function findCatalogExercise(subject: string, templateId?: string) {
   return trainingCatalog.find(entry =>
-    subject === `Training exercise: ${entry.name}` || subject === casePresentation(entry.id)?.subject);
-}
-
-export function presentCatalogTemplate(template: { subject: string; bodyHtml: string }) {
-  const entry = findCatalogExercise(template.subject);
-  return (entry && casePresentation(entry.id)) ?? template;
+    templateId === `training-catalog-${entry.id}` ||
+    subject === `Training exercise: ${entry.name}` ||
+    subject === casePresentation(entry.id)?.subject);
 }

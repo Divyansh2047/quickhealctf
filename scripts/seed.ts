@@ -1,4 +1,4 @@
-import { installOriginalTemplates } from './original-templates'
+import { installOriginalTemplates } from '../src/lib/original-templates'
 import { installModules } from '../src/lib/training-modules'
 /**
  * PhishGuard · Seed script

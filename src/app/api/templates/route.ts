@@ -1,3 +1,4 @@
+import { ensureInteractiveCatalog } from '@/lib/ensure-catalog'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ADMIN_ACTOR, logAudit } from '@/lib/audit'
@@ -16,6 +17,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    await ensureInteractiveCatalog()
     const [templates, usageGroups] = await Promise.all([
       db.template.findMany(),
       db.campaign.groupBy({ by: ['templateId'], _count: { templateId: true } }),

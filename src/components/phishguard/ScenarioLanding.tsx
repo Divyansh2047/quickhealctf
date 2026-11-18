@@ -18,7 +18,7 @@ export function ScenarioLanding({item,busy,onSubmit,onReport,onExit}: {
  const document=scenario.kind==='document'||scenario.kind==='esign';
  const Icon=scenario.kind==='parcel'?Package:finance?Building2:document?FileText:ShieldCheck;
  const field='mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100';
- const exercise = findCatalogExercise(item.template.subject);
+ const exercise = findCatalogExercise(item.template.subject, item.template.id);
  const decision = exercise && catalogExercises[exercise.id];
  if (exercise && decision) {
    return <section className="min-h-0 flex-1 overflow-y-auto bg-card p-6 sm:p-10" data-testid={`landing-${exercise.id}`}>

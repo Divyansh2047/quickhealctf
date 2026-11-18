@@ -23,6 +23,7 @@ export function casePresentation(id: string) {
     <h2 style="color:#0f172a;font-size:21px">${exercise.heading}</h2>
     <p>${entry.lines[0]}</p>
     <blockquote style="background-color:#f1f5f9;color:#1e293b;padding:12px">${entry.lines[1]}</blockquote>
+    <p><a href="#">Open practice screen</a></p>
   </div>`
   return { subject: entry.subject, bodyHtml }
 }

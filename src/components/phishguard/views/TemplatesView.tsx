@@ -3,7 +3,6 @@
 // PhishGuard · Templates: library of simulated phishing emails with previews,
 // red flags, teaching moments, and a full editor (create / edit / delete).
 
-import { presentCatalogTemplate } from "@/lib/training-catalog";
 import { useState } from "react";
 import {
   Eye,
@@ -144,7 +143,7 @@ export default function TemplatesView() {
                 ) : null}
               </div>
               <h3 className="mt-2 text-sm font-semibold">{t.name}</h3>
-              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{presentCatalogTemplate(t).subject}</p>
+              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{t.subject}</p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
                 {t.senderName} &lt;{t.senderEmail}&gt;
               </p>
@@ -227,7 +226,7 @@ function TemplateDetailDialog({
                 ) : null}
               </div>
               <DialogDescription id="tpl-detail-desc">
-                Subject: <span className="font-medium text-foreground">{presentCatalogTemplate(template).subject}</span>
+                Subject: <span className="font-medium text-foreground">{template.subject}</span>
                 <br />
                 From {template.senderName} &lt;
                 <span className="font-mono">{template.senderEmail}</span>&gt;
@@ -243,7 +242,7 @@ function TemplateDetailDialog({
 
               <TabsContent value="preview" className="mt-3">
                 <SimulatedEmailBody
-                  bodyHtml={presentCatalogTemplate(template).bodyHtml}
+                  bodyHtml={template.bodyHtml}
                   label="Simulated email body preview"
                   inert
                 />

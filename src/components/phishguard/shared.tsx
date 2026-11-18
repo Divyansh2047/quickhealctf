@@ -204,17 +204,36 @@ export function SimulatedEmailBody({
   className,
 }: {
   bodyHtml: string;
-  onLinkClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onLinkClick?: () => void;
   inert?: boolean;
   label?: string;
   className?: string;
 }) {
-  const document = `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.6 Arial,sans-serif;color:#172b24;padding:12px;overflow-wrap:anywhere}a{color:#047857;pointer-events:none}table{max-width:100%}</style></head><body>${bodyHtml}</body></html>`;
-  return <div className={cn("space-y-2", className)}>
-    <iframe title={label ?? "Simulated email body"} sandbox="" referrerPolicy="no-referrer" srcDoc={document} className="h-72 w-full rounded-lg border bg-white" />
-    {onLinkClick && !inert ? <button type="button" onClick={onLinkClick as unknown as React.MouseEventHandler<HTMLButtonElement>} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white">Open message link</button> : null}
-  </div>;
-
+  const interactive = !!onLinkClick && !inert;
+  const document = `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'none'; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.6 Arial,sans-serif;color:#172b24;padding:12px;overflow-wrap:anywhere}a{color:#047857;${interactive ? "cursor:pointer;text-decoration:underline" : "pointer-events:none"}}table{max-width:100%}</style></head><body>${bodyHtml}</body></html>`;
+  return (
+    <div className={cn("space-y-2", className)}>
+      <iframe
+        title={label ?? "Simulated email body"}
+        sandbox={interactive ? "allow-same-origin" : ""}
+        referrerPolicy="no-referrer"
+        srcDoc={document}
+        className="h-72 w-full rounded-lg border bg-white"
+        onLoad={event => {
+          if (!interactive) return;
+          const frame = event.currentTarget.contentDocument;
+          if (!frame) return;
+          for (const anchor of frame.querySelectorAll("a")) {
+            anchor.onclick = click => {
+              click.preventDefault();
+              if (anchor.getAttribute("href") === "#") onLinkClick?.();
+            };
+            anchor.onauxclick = click => click.preventDefault();
+          }
+        }}
+      />
+    </div>
+  );
 }
 
 /* --------------------------- severity helpers --------------------------- */

@@ -1,3 +1,4 @@
+import { ensureInteractiveCatalog } from '@/lib/ensure-catalog'
 import { safeTemplateHtml } from '@/lib/template-safety'
 import { canActFor } from '@/lib/participant-access'
 import { purgeExpired } from '@/lib/retention'
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Participant not found' }, { status: 404 })
     }
 
+    await ensureInteractiveCatalog()
     const enrollments = await db.enrollment.findMany({
       where: {
         participantId,

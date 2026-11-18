@@ -92,8 +92,9 @@ test('desktop and mobile UI, isolated preview and browser-only exercise inputs',
  const email=page.getByText(passwordTemplate.subject,{exact:true}).first()
  await email.click()
  const frame=page.locator('iframe').first()
- await expect(frame).toHaveAttribute('sandbox','')
- await page.getByRole('button',{name:'Open link',exact:true}).click()
+ await expect(frame).toHaveAttribute('sandbox','allow-same-origin')
+ const messageLink=page.frameLocator('iframe').getByRole('link').first()
+ await messageLink.click()
  const landing=page.getByTestId('landing-password')
  await expect(landing).toBeVisible()
  const tracking: unknown[]=[]

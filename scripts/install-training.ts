@@ -1,38 +1,16 @@
-import { installOriginalTemplates } from './original-templates'
 import { installModules } from '../src/lib/training-modules'
+import { installCatalog } from '../src/lib/install-catalog'
 import { db } from '../src/lib/db'
-import { makeTrainingDraft, trainingCatalog } from '../src/lib/training-catalog'
-
 import { seedDemo } from './seed'
 
 async function installTraining() {
-  for (const entry of trainingCatalog) {
-    const id = `training-catalog-${entry.id}`;
-    const difficulty = entry.id === 'recovery' ? 'hard' : entry.id === 'qr-notice' ? 'easy' : entry.id === 'app-access' ? 'hard' : 'medium';
-    const draft = makeTrainingDraft(entry, difficulty);
-    await db.template.upsert({
-      where: { id },
-      update: {},
-      create: { ...draft, id, isBuiltIn: true, redFlags: JSON.stringify(draft.redFlags) },
-    });
-    const refreshed = {
-      subject: draft.subject,
-      bodyHtml: draft.bodyHtml,
-    };
-    // Retire the old stock copy in place. References from existing campaigns stay valid.
-    await db.template.updateMany({
-      where: { id, isBuiltIn: true, subject: `Training exercise: ${entry.name}`, bodyHtml: { contains: 'Internal awareness exercise' } },
-      data: refreshed,
-    });
-  }
-  console.log(`Training catalog ready (${trainingCatalog.length} built-in templates).`);
   if (process.argv.includes('--with-demo')) {
     await db.$transaction(tx => seedDemo(tx, true), { timeout: 15000 });
     console.log('Original demo catalog ready. Existing records were kept.');
   }
-  await db.$transaction(installOriginalTemplates, { timeout: 15000 });
+  await db.$transaction(installCatalog, { timeout: 20000 });
   await db.$transaction(installModules);
-  console.log('Core training lessons ready.');
+  console.log('Interactive templates and core training lessons are ready.');
 }
 
 installTraining().catch(error => {

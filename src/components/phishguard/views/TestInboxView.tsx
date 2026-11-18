@@ -1,7 +1,7 @@
 "use client";
 
 import { catalogExercises } from "@/lib/catalog-exercises";
-import { findCatalogExercise, presentCatalogTemplate } from "@/lib/training-catalog";
+import { findCatalogExercise } from "@/lib/training-catalog";
 
 // Controlled landing decisions are recorded without accepting user-entered data.
 
@@ -198,12 +198,6 @@ export default function TestInboxView({
     }
   };
 
-  /** Intercept anchor clicks inside the simulated email body. */
-  const handleBodyClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (selected) clickLink(selected);
-  };
-
   /** The phishing click · stage 1 of the multi-stage flow. */
   const clickLink = async (item: InboxItem) => {
     if (actionLock.current) return;
@@ -221,7 +215,7 @@ export default function TestInboxView({
   };
 
   /** Stage 4: confirm a fictional request; only the decision is recorded. */
-  const openedCatalogExercise = fakeItem && findCatalogExercise(fakeItem.template.subject);
+  const openedCatalogExercise = fakeItem && findCatalogExercise(fakeItem.template.subject, fakeItem.template.id);
   const openedExercise = openedCatalogExercise && catalogExercises[openedCatalogExercise.id];
 
   const submitFake = async () => {
@@ -402,7 +396,7 @@ export default function TestInboxView({
                             className="mr-1.5 inline-block size-1.5 rounded-full bg-emerald-400 align-middle"
                           />
                         ) : null}
-                        {presentCatalogTemplate(item.template).subject}
+                        {item.template.subject}
                       </p>
                       <div className="mt-1.5 flex items-center justify-between gap-2">
                         <Badge variant="secondary" className="max-w-32 truncate text-[9px]">
@@ -457,7 +451,7 @@ export default function TestInboxView({
                       </span>
                     </p>
                     <p className="mt-0.5 text-lg font-semibold leading-snug">
-                      {presentCatalogTemplate(selected.template).subject}
+                      {selected.template.subject}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{shortDateTime(selected.deliveredAt)}</span>
@@ -477,8 +471,9 @@ export default function TestInboxView({
 
                 {/* Body · clicks intercepted */}
                 <SimulatedEmailBody
-                  bodyHtml={presentCatalogTemplate(selected.template).bodyHtml}
-                  onLinkClick={handleBodyClickCapture}
+                  bodyHtml={selected.template.bodyHtml}
+                  key={selected.enrollmentId}
+                  onLinkClick={() => void clickLink(selected)}
                   label="Simulated email body (links are intercepted)"
                 />
 
