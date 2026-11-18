@@ -1,71 +1,90 @@
 # PhishGuard
 
-PhishGuard is a local security awareness lab. Participants practice recognizing suspicious messages in an internal inbox, then get feedback on what they noticed and what they could do next. Organizers can track participation and learning without sending real email.
+PhishGuard is a phishing-awareness training lab. Participants review simulated messages in an internal inbox, decide whether to report or proceed, and get feedback on their decision. Organizers manage consent, run campaigns, and review learning progress. Every message and exercise stays inside the app.
 
-## Run it locally
+[Try the hosted workspace](https://phishguard-quickhealctf.vercel.app/) · [Demo walkthrough](docs/DEMO_RUNBOOK.md) · [Deploy on Vercel](docs/VERCEL.md)
 
-Install Node.js 20.19 or later with npm. On Windows, double-click `run.bat`. It installs missing dependencies, asks for an administrator passphrase on first setup, prepares SQLite, installs the template catalog and fictional starter participants for an empty workspace, and starts the app.
+## Get started locally
 
-On macOS or Linux, run these commands from the project directory.
+Install **Node.js 20.19 or later** with npm. Node.js 22 is a good default for local development and Vercel.
+
+**Windows:** Double-click `run.bat` or run `.\run.bat` from the project folder in PowerShell. The launcher installs missing dependencies, prompts for an admin passphrase on first setup, initializes SQLite, installs the demo, and starts the app.
+
+**macOS or Linux:** Run these commands from the repository root:
 
 ```sh
 npm ci
 npm run setup
 npm run db:push
-npm run templates:install
+npm run demo:install
 npm run dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in with the passphrase you chose. Setup accepts 12 to 256 characters. The terminal displays your input while you type it.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in with the passphrase you chose. Setup accepts 12 to 256 characters. You can rotate it later using **Change passphrase** in the administrator bar.
 
-The Windows launcher restores the original demo (12 fictional participants, seven detailed templates, four campaigns, and five lessons) alongside the eleven interactive templates. Existing participants, consent, templates and campaign activity are preserved. On macOS or Linux, use `npm run demo:install` after `npm run db:push` for the same data. Use `npm run templates:install` to install the eleven interactive templates and any missing core lessons. To reset a disposable workspace to its original fictional data, stop the app and run the following **only against a disposable demo database**.
+### Demo data and upgrades
 
-```sh
-npm run demo:reset
-npm run templates:install
-npm run dev
-```
+- **Full demo:** `npm run demo:install` adds 12 fictional participants, four sample campaigns, five core lessons, and the template library: seven original scenarios and eleven interactive scenarios.
+- **Catalog only:** `npm run templates:install` installs or refreshes the built-in templates and core lessons without adding participants or campaigns.
+- **Existing workspace:** Keep your `.env` and database. After the update, opening **Templates** or **Inbox** restores missing originals and upgrades recognized stock templates in place. Opening **Training** restores any missing core lessons. Campaign references and learner progress are preserved.
+- **Disposable reset:** `npm run demo:reset` replaces application data in the configured database. Use it only with a disposable demo database, then run `npm run templates:install` to add the full interactive catalog.
 
-`demo:reset` replaces the contents of the configured database. Skip it when upgrading an existing workspace. Keep your current `.env` and `db` directory, and rerun the launcher or the database and catalog commands.
+## Run an exercise
 
-## Try the exercises
+1. Open **Compliance**, approve the sender and participant domains, create a participant, and issue an invitation. Use fictional addresses for the demo.
+2. Open the invitation in a private browser window or a separate profile. The participant accepts the consent notice there. Invitations expire after 24 hours and can be used once.
+3. In **Campaigns**, choose a template, select consenting participants, and launch the campaign.
+4. In the participant inbox, open the message and choose its link or report it. The link inside the message opens the assigned practice screen. The preview in the template library remains read-only.
+5. Review the feedback, then visit **Training** to take a three-question assessment. Use the organizer dashboard to review campaign outcomes and compare baseline and follow-up results.
 
-1. In **Compliance**, approve the exact domains used by the fictional sender and participant addresses.
-2. Create a participant and issue an invitation. Open the invitation in a separate browser profile and accept as that participant.
-3. In **Campaigns**, select a template, assign consenting participants, and launch.
-4. Open the participant inbox. Report the message, open the exercise, or dismiss it. A link open counts as an interaction, but carries no leaderboard penalty. Closing an exercise does not record a submission.
-5. Review the warning signs, take the short quiz, and compare the activity and training results in the organizer workspace.
+Opening a message link alone leaves reporting available. Proceeding records the exercise outcome and closes the option to report that attempt. Reporting first also locks the outcome. Closing the practice screen without proceeding does not record a submission.
 
-The catalog covers lottery notices, vacation tickets, coworker impersonation, supplier payment changes, shared documents, and account verification. The demo adds scenarios such as payroll verification, executive payment approval, parcel redelivery, and e-signing. Use invented values anywhere an exercise presents practice fields.
-
-## Studio and reporting
-
-The draft generator works locally with six supported exercise presets. It creates labeled internal exercises with coaching notes. The message analyzer checks pasted text for signals such as mismatched reply domains, unexpected payment requests, suspicious links, and pressure to act. Treat its findings as prompts to verify an issue. It does not open links or verify the sender.
-
-Local coaching and analysis require no AI key. External AI is disabled by default. If you enable it for supported analysis and coaching features, review what text your provider will receive before pasting a message. The template generator remains local.
-
-The organizer can view campaign activity, reports, and paired quiz results. Exported participant labels are pseudonyms. A small department may be omitted from aggregates, and seeded demo activity is fictional.
-
-## How it works
-
-The application uses Next.js and TypeScript for the interface and API, with Prisma and SQLite for local storage. Signed sessions distinguish organizers from participants. Invitations expire and can only be accepted once. Campaigns require participant consent and approved sender and recipient domains. Tracking records interaction types and timestamps. Practice field values stay in the browser and are cleared on submit or exit.
-
-Templates render in a sandboxed preview. Reports use pseudonymous labels and escape spreadsheet formulas. The retention job removes expired campaign enrollments and their events. See the [security review](docs/SECURITY_REVIEW.md) for the threat model and known limitations.
-
-### Configuration
-
-| Setting | Purpose |
+| Scenario | What the participant does |
 | --- | --- |
-| `APP_ORIGIN` | Exact browser origin. Local default is `http://127.0.0.1:3000`. |
-| `DATABASE_URL` | SQLite location. Default is `file:../db/custom.db`, relative to the Prisma schema. |
-| `SESSION_SECRET` | Signs sessions and invitations. Generated by setup. |
-| `ADMIN_PASSWORD_HASH` | Verifies the admin passphrase. Generated by setup. |
-| `COOKIE_SECURE` | Set to `true` when serving over HTTPS. |
-| `AI_ENABLED` | Enables supported external AI features when the provider is configured. Defaults to `false`. |
+| Account sign-in | Selects a fictional identity and decides whether to proceed |
+| Account recovery | Types the answer shown on a fictional case card. The browser checks it locally |
+| Unexpected file share or payroll attachment | Chooses whether to download a harmless plain-text `demo.txt` |
+| QR notice, meeting update, or app permissions | Inspects a destination, responds to a calendar change, or reviews requested permissions |
+| Supplier change, prize notice, travel booking, or coworker request | Reviews the case and decides whether to proceed or report |
 
-For a local origin error, use the exact configured address. On Windows, the launcher repairs the local origin setting. Do not commit `.env` or SQLite files. For a production build, run `npm run build` followed by `npm start`. It binds to loopback by default. This project is designed for one trusted host and one organization.
+The original catalog also includes scenarios such as password expiry, payroll verification, parcel redelivery, executive payment approval, and e-signing.
 
-## Run the checks
+## Studio, training, and reporting
+
+- **Studio** drafts exercises from the local catalog and screens pasted messages for signs such as mismatched reply domains and unexpected payment requests. Analysis does not open links or verify the sender.
+- **Training** includes five lessons on phishing indicators, pressure tactics, link hygiene, reporting, and executive impersonation. Quiz choices are shuffled, and scoring uses the order shown to the participant.
+- **Reporting** shows campaign activity and paired assessment results. Exports use pseudonymous participant labels and escape spreadsheet formulas. Small departments may be omitted from aggregates, and seeded activity is fictional.
+- **External AI** is disabled by default. Local draft generation, analysis, and coaching do not need an API key. Review what your provider receives before enabling outbound analysis or coaching.
+
+## Deploy on Vercel
+
+The app uses Next.js and TypeScript with Prisma. **Local development uses SQLite. Vercel uses Neon Postgres.** The hosted database is separate from your local database.
+
+Follow the [Vercel and Neon setup guide](docs/VERCEL.md) for database initialization, Production environment variables, and deployments from a local folder. Once your folder is linked and configured, the production deployment command is:
+
+```powershell
+npx.cmd vercel@latest --prod
+```
+
+| Variable | Local | Hosted |
+| --- | --- | --- |
+| `APP_ORIGIN` | `http://127.0.0.1:3000` | Exact HTTPS production origin, without a trailing slash |
+| `DATABASE_URL` | `file:../db/custom.db` | Pooled Neon connection URL |
+| `DIRECT_DATABASE_URL` | Unused | Direct Neon URL for `npm run db:vercel:init` only |
+| `SESSION_SECRET` | Generated by setup | Fresh secret generated by setup |
+| `ADMIN_PASSWORD_HASH` | Generated by setup | Fresh hash generated by setup |
+| `COOKIE_SECURE` | `false` over local HTTP | `true` |
+| `AI_ENABLED` | `false` by default | `false` unless intentionally configured |
+
+Keep `.env`, database connection strings, credentials, and SQLite files out of Git. If local login rejects your origin, open the exact address in `APP_ORIGIN`. The Windows launcher restores the default local origin automatically.
+
+## What the app records
+
+Campaigns require participant consent and approved sender and recipient domains. The app records interaction types and timestamps, including the decision to proceed or report. It does not send outbound email or collect real passwords. The fictional recovery answer is checked in the browser, and the practice attachment is a plain-text note. Message content renders in a frame that blocks scripts and external resources.
+
+The retention sweep removes expired enrollments and related activity. On Vercel, eligible requests trigger the sweep. The app is intended for a trusted administrator and one organization's workspace. For the trust model and known limits, see the [security review](docs/SECURITY_REVIEW.md).
+
+## Verify changes
 
 ```sh
 npm run lint
@@ -75,6 +94,8 @@ npm run verify:api
 npm run build
 ```
 
-The API test command starts a local server against a temporary SQLite database. Stop your development server first so port 3000 is free. For the browser suite, install Playwright Chromium with `npx playwright install chromium`, then run `npm run verify:browser`. See the [demo runbook](docs/DEMO_RUNBOOK.md) for a walkthrough and the [sample report](docs/SAMPLE_AWARENESS_REPORT.md) for an example deliverable.
+The API suite starts a local server on port 3000 and uses a temporary SQLite database. Stop other development servers on that port first. For browser verification, install Chromium with `npx playwright install chromium`, then run `npm run verify:browser`. Use `npm run build:vercel` to verify the Postgres build path.
 
-For hosted deployment, see [Vercel and Neon setup](docs/VERCEL.md).
+For a live smoke test, sign in, check the template editor and five lessons, open the link inside a participant's message, and verify that proceeding locks the outcome. In an attachment exercise, also check that `demo.txt` lands in Downloads.
+
+See the [sample awareness report](docs/SAMPLE_AWARENESS_REPORT.md) for an example deliverable.
